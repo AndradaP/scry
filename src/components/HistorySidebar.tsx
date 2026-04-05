@@ -1,28 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, X } from "lucide-react";
-
-interface TeardownEntry {
-  id: string;
-  product_name: string;
-  mode: "generate" | "critique";
-  created_at: string;
-}
+import { getHistory, type HistoryEntry } from "@/lib/history";
 
 interface HistorySidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const MOCK_ENTRIES: TeardownEntry[] = [];
-
 type FilterTab = "all" | "generate" | "critique";
 
 const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
 
-  const filtered = MOCK_ENTRIES.filter((entry) => {
+  const loadEntries = () => setEntries(getHistory());
+
+  useEffect(() => {
+    loadEntries();
+    const handler = () => loadEntries();
+    window.addEventListener("shard_history_updated", handler);
+    return () => window.removeEventListener("shard_history_updated", handler);
+  }, []);
+
+  const filtered = entries.filter((entry) => {
     const matchesTab = activeTab === "all" || entry.mode === activeTab;
     const matchesSearch = entry.product_name.toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesSearch;
@@ -42,7 +44,6 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
 
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={onClose} />
       )}
@@ -59,7 +60,6 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
           </button>
         </div>
 
-        {/* Filter tabs */}
         <div className="flex gap-4 px-4 pt-3 border-b border-border">
           {tabs.map((tab) => (
             <button
@@ -76,7 +76,6 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
           ))}
         </div>
 
-        {/* Search */}
         <div className="px-4 py-3">
           <div className="relative">
             <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -90,14 +89,13 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
           </div>
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto px-2">
           {filtered.length === 0 ? (
             <div className="py-12 text-center px-4">
               <p className="font-body text-xs text-muted-foreground mb-3">{emptyMessage().text}</p>
               <Link
                 to={emptyMessage().link}
-                className="text-xs text-amber-accent hover:opacity-80 transition-opacity font-body"
+                className="text-xs text-primary hover:opacity-80 transition-opacity font-body"
               >
                 {emptyMessage().linkText}
               </Link>
@@ -111,7 +109,7 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-body text-xs font-medium text-foreground truncate">{entry.product_name}</span>
-                  <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-amber-accent border border-primary/40 px-1.5 py-0.5 shrink-0">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-primary border border-primary/40 px-1.5 py-0.5 shrink-0">
                     {entry.mode === "generate" ? "Generate" : "Critique"}
                   </span>
                 </div>
