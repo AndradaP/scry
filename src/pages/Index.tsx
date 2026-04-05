@@ -1,18 +1,33 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import Header from "@/components/Header";
+import AppLayout from "@/components/AppLayout";
+import ShardLogo from "@/components/ShardLogo";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="max-w-[860px] mx-auto px-6">
-        <div className="pt-24 pb-16">
-          <h1 className="font-heading text-6xl md:text-7xl font-semibold tracking-tight text-foreground mb-4">
-            The Shard
-          </h1>
+    <AppLayout>
+      <div className="max-w-[860px] mx-auto px-6">
+        <div className="pt-24 pb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <ShardLogo size={48} />
+            <h1 className="font-heading text-6xl md:text-7xl font-semibold tracking-tight text-foreground">
+              The Shard
+            </h1>
+          </div>
           <p className="font-body text-lg text-muted-foreground max-w-md">
             Product teardowns powered by the best product minds.
+          </p>
+          <p className="font-body text-sm text-muted-foreground/70 mt-2 max-w-lg">
+            Insights drawn from{" "}
+            <a
+              href="https://www.lennysnewsletter.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+            >
+              Lenny's Podcast and Newsletter
+            </a>{" "}
+            — updated as new content is published.
           </p>
         </div>
 
@@ -47,8 +62,8 @@ const Index = () => {
             </p>
           </Link>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 };
 

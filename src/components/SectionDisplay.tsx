@@ -44,7 +44,7 @@ const SectionItem = ({ section, index }: { section: Section; index: number }) =>
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="pb-6 font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+            <div className="pb-6 font-body text-base leading-[1.75] text-foreground whitespace-pre-wrap">
               {section.content}
             </div>
           </motion.div>
