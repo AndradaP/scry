@@ -96,4 +96,7 @@
   .bg-amber-accent {
     background-color: hsl(var(--primary));
   }
+  .shard-glow {
+    text-shadow: 0 0 40px rgba(232, 115, 42, 0.35);
+  }
 }

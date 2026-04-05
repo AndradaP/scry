@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
-import ShardLogo from "./ShardLogo";
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -22,8 +21,7 @@ const Header = ({ onToggleSidebar }: HeaderProps) => {
             </button>
           )}
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <ShardLogo size={24} />
-            <span className="font-heading text-2xl font-semibold tracking-tight text-foreground">
+            <span className="font-heading text-2xl font-semibold tracking-tight text-foreground shard-glow">
               The Shard
             </span>
           </Link>

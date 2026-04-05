@@ -12,21 +12,47 @@ interface SectionDisplayProps {
   sections: Section[];
 }
 
+const CITATION_REGEX = /\(([^)]+?,\s*[^)]+?)\)/g;
+
+const renderContentWithCitations = (content: string, isLennysLens: boolean) => {
+  if (isLennysLens) {
+    return <span>{content}</span>;
+  }
+
+  const parts = content.split(CITATION_REGEX);
+  const result: React.ReactNode[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) {
+      result.push(<span key={i}>{parts[i]}</span>);
+    } else {
+      result.push(
+        <span key={i} className="italic text-[14px]" style={{ color: "#7A7670" }}>
+          ({parts[i]})
+        </span>
+      );
+    }
+  }
+
+  return <>{result}</>;
+};
+
 const SectionItem = ({ section, index }: { section: Section; index: number }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const isLennysLens = section.key === "lennys_lens";
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08, duration: 0.4 }}
-      className="border-b rule-amber"
+      className={index > 0 ? "mt-[40px]" : ""}
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between py-4 text-left group"
+        className="w-full flex items-center justify-between py-4 text-left group border-b rule-amber"
       >
-        <span className="font-mono text-xs uppercase tracking-[0.15em] text-amber-accent">
+        <span className="font-mono uppercase tracking-[0.15em] text-amber-accent" style={{ fontSize: "11px" }}>
           {section.label}
         </span>
         <ChevronDown
@@ -44,8 +70,8 @@ const SectionItem = ({ section, index }: { section: Section; index: number }) =>
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="pb-6 font-body text-base leading-[1.75] text-foreground whitespace-pre-wrap">
-              {section.content}
+            <div className="mt-[8px] pb-2 font-body text-[16px] leading-[1.75] text-foreground whitespace-pre-wrap">
+              {renderContentWithCitations(section.content, isLennysLens)}
             </div>
           </motion.div>
         )}
@@ -56,7 +82,7 @@ const SectionItem = ({ section, index }: { section: Section; index: number }) =>
 
 const SectionDisplay = ({ sections }: SectionDisplayProps) => {
   return (
-    <div className="space-y-0">
+    <div>
       {sections.map((section, i) => (
         <SectionItem key={section.key} section={section} index={i} />
       ))}
