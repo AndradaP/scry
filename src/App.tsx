@@ -21,7 +21,9 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/generate" element={<Generate />} />
+          <Route path="/generate/:id" element={<Generate />} />
           <Route path="/critique" element={<Critique />} />
+          <Route path="/critique/:id" element={<Critique />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="*" element={<NotFound />} />

@@ -82,7 +82,7 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about this teardown..."
-          className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm font-body transition-colors"
+          className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm font-body transition-colors placeholder:text-muted-foreground"
           style={{ color: "#F0EBE0" }}
         />
         <button
