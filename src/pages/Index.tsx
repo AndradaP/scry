@@ -7,8 +7,8 @@ const Index = () => {
     <AppLayout>
       <div className="max-w-[860px] mx-auto px-6">
         <div className="pt-24 pb-8">
-          <h1 className="font-heading text-6xl md:text-7xl font-semibold tracking-tight text-foreground shard-glow mb-4">
-            The Shard
+          <h1 className="font-heading text-6xl md:text-7xl font-semibold tracking-tight mb-4">
+            <span className="text-foreground">The </span><span style={{ color: '#E8732A' }}>Shard</span>
           </h1>
           <p className="font-body text-lg text-muted-foreground max-w-md">
             Product teardowns powered by the best product minds.
