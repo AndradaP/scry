@@ -10,11 +10,11 @@ const ShardLogo = ({ size = 28, className = "" }: { size?: number; className?: s
     >
       <polygon
         points="14,2 18,2.5 19,12 20,22 17,30 13,28 12,18 11,8"
-        fill="#E8732A"
+        fill="hsl(40, 55%, 55%)"
       />
       <polygon
         points="14,2 18,2.5 19,12 12,18 11,8"
-        fill="#E8732A"
+        fill="hsl(40, 55%, 55%)"
         opacity="0.7"
       />
     </svg>
