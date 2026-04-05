@@ -1,0 +1,130 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Search, X } from "lucide-react";
+
+interface TeardownEntry {
+  id: string;
+  product_name: string;
+  mode: "generate" | "critique";
+  created_at: string;
+}
+
+interface HistorySidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const MOCK_ENTRIES: TeardownEntry[] = [];
+
+type FilterTab = "all" | "generate" | "critique";
+
+const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [search, setSearch] = useState("");
+
+  const filtered = MOCK_ENTRIES.filter((entry) => {
+    const matchesTab = activeTab === "all" || entry.mode === activeTab;
+    const matchesSearch = entry.product_name.toLowerCase().includes(search.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
+
+  const tabs: { key: FilterTab; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "generate", label: "Generated" },
+    { key: "critique", label: "Critiques" },
+  ];
+
+  const emptyMessage = () => {
+    if (activeTab === "generate") return { text: "No generated teardowns yet.", link: "/generate", linkText: "Generate a teardown" };
+    if (activeTab === "critique") return { text: "No critiques yet.", link: "/critique", linkText: "Submit for critique" };
+    return { text: "No teardowns yet.", link: "/generate", linkText: "Generate a teardown" };
+  };
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={onClose} />
+      )}
+
+      <aside
+        className={`fixed top-0 left-0 z-40 h-full w-72 bg-card border-r border-border flex flex-col transition-transform duration-200 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:relative lg:z-auto ${isOpen ? "lg:translate-x-0" : "lg:-translate-x-full lg:w-0 lg:border-0"}`}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">History</span>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors lg:hidden">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex gap-4 px-4 pt-3 border-b border-border">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`pb-2 text-xs font-body transition-colors border-b-2 -mb-px ${
+                activeTab === tab.key
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-3">
+          <div className="relative">
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-1.5 pl-5 text-xs font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto px-2">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center px-4">
+              <p className="font-body text-xs text-muted-foreground mb-3">{emptyMessage().text}</p>
+              <Link
+                to={emptyMessage().link}
+                className="text-xs text-amber-accent hover:opacity-80 transition-opacity font-body"
+              >
+                {emptyMessage().linkText}
+              </Link>
+            </div>
+          ) : (
+            filtered.map((entry) => (
+              <Link
+                key={entry.id}
+                to={`/${entry.mode}/${entry.id}`}
+                className="flex items-center justify-between py-3 px-2 border-b border-border hover:bg-secondary/50 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-body text-xs font-medium text-foreground truncate">{entry.product_name}</span>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-amber-accent border border-primary/40 px-1.5 py-0.5 shrink-0">
+                    {entry.mode === "generate" ? "Generate" : "Critique"}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] text-muted-foreground shrink-0 ml-2">
+                  {new Date(entry.created_at).toLocaleDateString()}
+                </span>
+              </Link>
+            ))
+          )}
+        </div>
+      </aside>
+    </>
+  );
+};
+
+export default HistorySidebar;
