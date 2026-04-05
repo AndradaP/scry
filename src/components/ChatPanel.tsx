@@ -44,8 +44,8 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
 
   return (
     <div className="mt-12 pt-8 border-t rule-amber">
-      <p className="text-xs text-muted-foreground font-mono mb-4">
-        Ask a follow-up <span className="text-muted-foreground/50 ml-2">press /</span>
+      <p className="text-xs font-mono mb-4" style={{ color: "#7A7670" }}>
+        Ask a follow-up <span className="opacity-50 ml-2">press /</span>
       </p>
 
       {messages.length > 0 && (
@@ -56,11 +56,10 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "text-foreground font-body"
-                    : "text-muted-foreground font-mono"
-                }`}
+                className={`max-w-[80%] text-sm leading-relaxed font-mono`}
+                style={{
+                  color: msg.role === "user" ? "#F0EBE0" : "#EDE6D8",
+                }}
               >
                 {msg.content}
               </div>
@@ -68,7 +67,7 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="text-sm font-mono text-muted-foreground animate-pulse">
+              <div className="text-sm font-mono animate-pulse" style={{ color: "#7A7670" }}>
                 Thinking...
               </div>
             </div>
@@ -83,7 +82,8 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about this teardown..."
-          className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm font-body text-foreground placeholder:text-muted-foreground transition-colors"
+          className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm font-body transition-colors"
+          style={{ color: "#F0EBE0" }}
         />
         <button
           type="submit"
