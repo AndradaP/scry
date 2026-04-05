@@ -97,6 +97,6 @@
     background-color: hsl(var(--primary));
   }
   .shard-glow {
-    text-shadow: 0 0 40px rgba(232, 115, 42, 0.35);
+    text-shadow: 0 0 40px hsla(40, 55%, 55%, 0.35);
   }
 }
