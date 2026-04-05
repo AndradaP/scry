@@ -21,8 +21,8 @@ const Header = ({ onToggleSidebar }: HeaderProps) => {
             </button>
           )}
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <span className="font-heading text-2xl font-semibold tracking-tight text-foreground shard-glow">
-              The Shard
+            <span className="font-heading text-2xl font-semibold tracking-tight">
+              <span className="text-foreground">The </span><span style={{ color: '#E8732A' }}>Shard</span>
             </span>
           </Link>
         </div>
