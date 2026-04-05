@@ -1,0 +1,100 @@
+import { useState, useRef, useEffect } from "react";
+import { Send } from "lucide-react";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ChatPanelProps {
+  messages: Message[];
+  onSend: (message: string) => void;
+  isLoading?: boolean;
+}
+
+const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
+  const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "/" && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    onSend(input.trim());
+    setInput("");
+  };
+
+  return (
+    <div className="mt-12 pt-8 border-t rule-amber">
+      <p className="text-xs text-muted-foreground font-mono mb-4">
+        Ask a follow-up <span className="text-muted-foreground/50 ml-2">press /</span>
+      </p>
+
+      {messages.length > 0 && (
+        <div ref={scrollRef} className="max-h-[400px] overflow-y-auto space-y-4 mb-6">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[80%] text-sm leading-relaxed ${
+                  msg.role === "user"
+                    ? "text-foreground font-body"
+                    : "text-muted-foreground font-mono"
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="text-sm font-mono text-muted-foreground animate-pulse">
+                Thinking...
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex items-center gap-3">
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask about this teardown..."
+          className="flex-1 bg-transparent border-b border-border focus:border-primary outline-none py-2 text-sm font-body text-foreground placeholder:text-muted-foreground transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={!input.trim() || isLoading}
+          className="p-2 text-muted-foreground hover:text-amber-accent disabled:opacity-30 transition-colors"
+        >
+          <Send className="w-4 h-4" />
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default ChatPanel;
