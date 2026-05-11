@@ -15,7 +15,10 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
 
-  const loadEntries = () => setEntries(getHistory());
+  const loadEntries = async () => {
+    const data = await getHistory();
+    setEntries(data);
+  };
 
   useEffect(() => {
     loadEntries();
