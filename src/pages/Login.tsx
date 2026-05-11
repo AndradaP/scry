@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert(error.message);
+    } else {
+      window.location.href = "/";
+    }
   };
 
   return (
