@@ -116,19 +116,44 @@ const Critique = () => {
   };
 
   const handleChatSend = async (message: string) => {
-    const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", content: message };
+    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: message };
     const newMessages = [...chatMessages, userMsg];
     setChatMessages(newMessages);
-    setTimeout(async () => {
+  
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+  
+      const teardownContext = sections
+        .map((s) => `${s.label}:\n${s.content}`)
+        .join("\n\n");
+  
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-teardown`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            mode: "chat",
+            teardownContext,
+            chatMessages: [...newMessages.map(m => ({ role: m.role, content: m.content }))],
+          }),
+        }
+      );
+  
+      const result = await response.json();
       const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: "assistant",
-        content: "This is a placeholder response. In the full implementation, this would be a context-aware answer referencing your critique.",
+        content: result.reply,
       };
       const updatedMessages = [...newMessages, assistantMsg];
       setChatMessages(updatedMessages);
+  
       if (entryId && critique) {
-        const sections = CRITIQUE_SECTIONS.map((s) => ({ key: s.key, label: s.label, content: critique[s.key] || "" }));
         await saveEntry({
           id: entryId,
           product_name: productName || "Untitled Critique",
@@ -138,7 +163,9 @@ const Critique = () => {
           chatMessages: updatedMessages,
         });
       }
-    }, 1000);
+    } catch (error) {
+      console.error("Error in chat:", error);
+    }
   };
 
   const critiqueTitle = productName || "Critique";

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Send } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   id: string;
@@ -61,7 +62,23 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
                   color: msg.role === "user" ? "#F0EBE0" : "#EDE6D8",
                 }}
               >
-                {msg.content}
+                {msg.role === "assistant" ? (
+                  <ReactMarkdown
+                    components={{
+                      h1: ({children}) => <p className="font-bold text-base mb-2">{children}</p>,
+                      h2: ({children}) => <p className="font-bold mb-1 mt-3">{children}</p>,
+                      h3: ({children}) => <p className="font-semibold mb-1 mt-2">{children}</p>,
+                      p: ({children}) => <p className="mb-2">{children}</p>,
+                      ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                      ol: ({children}) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                      strong: ({children}) => <span className="font-bold">{children}</span>,
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
               </div>
             </div>
           ))}

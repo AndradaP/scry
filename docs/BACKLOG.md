@@ -21,10 +21,11 @@ Organized by phase — items move up as phases complete.
 ### Polish (Phase 2 quality of life)
 - [ ] Replace signup alert() with proper in-page success message
 - [ ] Add loading button state on signup/login (visual feedback on click)
-- [ ] Reduce Claude API max_tokens from 4000 to 2500 for faster responses
+- [ ] Reduce Claude API max_tokens from 4000 to 2500 for faster responses - under consideration
 - [ ] Stream Claude API responses for better perceived performance
 - [ ] Remove debug console.log statements from history.ts
 - [ ] Google OAuth / sign in with Google (nice-to-have, non-blocking)
+- [ ] Add input validation to Critique mode — if submission is too short (< 50 words) or clearly not a teardown, return a short friendly message instead of a full critique. Something like: "This doesn't look like a product teardown. A teardown analyzes a specific product — its users, problem, solution, growth model, and design. Try submitting 200+ words on a product you want feedback on."
 
 ---
 
