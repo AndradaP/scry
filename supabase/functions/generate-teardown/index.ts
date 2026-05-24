@@ -3,39 +3,44 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Step 1: Ask Claude to generate smart, semantic search queries
 async function generateSearchQueries(
   mode: string,
   productName?: string,
   userTeardown?: string
 ): Promise<string[]> {
   const prompt = mode === "generate"
-    ? `You are helping search a podcast and newsletter archive about product strategy, growth, and design. 
-    
-The archive contains conversations with product leaders, founders, and investors — the language is conversational and thematic, not keyword-based.
+    ? `You are helping search a podcast and newsletter archive of long-form conversations with product leaders, founders, and operators. The archive uses semantic search — it matches meaning, not keywords. Queries that sound like natural spoken sentences retrieve well. Keyword strings retrieve nothing.
 
-Generate exactly 4 short search queries (3-7 words each) to find the most relevant insights for a product teardown of: "${productName}"
+The product to teardown is: "${productName}"
 
-Think about:
-- The product category and how people discuss it (e.g. "design tools", "developer infrastructure", "consumer social")
-- The go-to-market motion likely at play (PLG, sales-led, marketplace, etc.)
-- The growth and retention dynamics typical for this type of product
-- Any known strategic tensions or decisions in this category
+Generate exactly 4 search queries. Follow these rules strictly:
+- Query 1: the product name exactly as given, nothing else
+- Queries 2-4: conversational sentences of 10-15 words describing a concept, dynamic, or strategic question relevant to this product's category
+- Every query must read like something a person would say out loud, not a search string
+- Do not use comma-separated keywords
+- Do not mention the product name in queries 2-4
 
-Return ONLY a JSON array of 4 strings. No explanation. No markdown. Example format:
-["query one here", "query two here", "query three here", "query four here"]`
-    : `You are helping search a podcast and newsletter archive about product strategy, growth, and design.
+Good examples for a product like "Figma":
+- "how do design tools win adoption from the bottom up inside a company"
+- "what makes a collaboration product sticky when multiple people use it together"
+- "when does a prosumer tool successfully cross into enterprise sales"
 
-The archive contains conversations with product leaders, founders, and investors — the language is conversational and thematic, not keyword-based.
+Bad examples (do not write like this):
+- "design tools collaboration growth strategy"
+- "figma enterprise positioning competitive"
+- "product led growth retention monetization"
 
-A user has submitted a product teardown for critique. Generate exactly 4 short search queries (3-7 words each) to find relevant frameworks and expert perspectives that would help evaluate the quality of this teardown.
+Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`
+    : `You are helping search a podcast and newsletter archive of long-form conversations with product leaders, founders, and operators. The archive uses semantic search — queries that sound like natural spoken sentences retrieve well. Keyword strings retrieve nothing.
 
-Teardown excerpt (first 500 chars): "${userTeardown?.slice(0, 500)}"
+A user submitted a product teardown for critique. Generate exactly 4 search queries to find relevant frameworks and expert perspectives.
 
-Think about:
-- What product category this teardown is analyzing
-- What frameworks or lenses a strong teardown should apply
-- What common gaps or blind spots appear in amateur teardowns of this type
+Teardown excerpt: "${userTeardown?.slice(0, 500)}"
+
+Rules:
+- Query 1: the name of the product being analyzed, exactly as it appears in the teardown
+- Queries 2-4: conversational sentences of 10-15 words about frameworks or dynamics relevant to evaluating this type of product
+- No keyword strings. No comma-separated terms.
 
 Return ONLY a JSON array of 4 strings. No explanation. No markdown.`;
 
@@ -64,10 +69,9 @@ Return ONLY a JSON array of 4 strings. No explanation. No markdown.`;
     console.error("Failed to parse query list:", text);
   }
 
-  // Fallback queries if parsing fails
   return mode === "generate"
-    ? ["product led growth B2B", "retention and activation strategy", "go to market motion"]
-    : ["product strategy framework teardown", "growth model analysis", "user experience critique"];
+    ? [productName ?? "", "how does a bottom up product expand into enterprise accounts", "what makes a B2B product sticky enough that teams keep using it"]
+    : ["product strategy framework teardown", "how do you evaluate whether a product has found real product market fit", "what separates a good product teardown from a shallow one"];
 }
 
 async function searchLennyData(query: string, limit = 5): Promise<string> {
@@ -193,9 +197,11 @@ ${teardownContext}`;
 
     const corpusSection = corpusContext.length > 0
       ? `LENNY'S ARCHIVE CONTEXT:\n${corpusContext}`
-      : `LENNY'S ARCHIVE CONTEXT:\nLimited archive coverage found for this product. Draw on your own knowledge of product strategy principles where the archive is thin, and note where you are doing so.`;
+      : `LENNY'S ARCHIVE CONTEXT:\nNo direct archive coverage found for this product. Draw on your broader knowledge of product strategy, and in Lenny's Lens specifically, identify relevant frameworks or patterns from Lenny's corpus by name — citing the guest, episode theme, or principle — and explain why each applies to this product's situation.`;
 
     // ── Step 3: Generate teardown or critique ────────────────────────────────
+    const lennysLensInstruction = `For lennys_lens specifically: this section must always be substantive. If the archive returned direct mentions of this product or its founders, use them. If not, identify 2-3 frameworks, patterns, or principles that Lenny or his guests have articulated that directly apply to this product's strategic situation. Name the specific guest, episode theme, or recurring pattern you are drawing from and explain why it applies. Never disclaim lack of coverage. Never leave this section thin. The value of Lenny's Lens is applying the corpus intelligently to a specific product, not just quoting it.`;
+
     const systemPrompt = mode === "critique"
       ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive. Below is relevant content from that archive to ground your analysis.
 
@@ -207,7 +213,7 @@ Format your response as a JSON object with these exact keys: overall_assessment,
 
 Each section should be 2-4 paragraphs. Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
 
-For lennys_lens specifically: draw only from moments where Lenny himself offers his own synthesis, pattern recognition across guests, or direct opinions — not from moments where he is simply asking questions or summarizing what a guest said. Name him explicitly when using his voice.`
+${lennysLensInstruction}`
       : `You are a world-class product analyst with access to insights from Lenny Rachitsky's podcast and newsletter archive. Below is relevant content from that archive to ground your analysis.
 
 ${corpusSection}
@@ -218,9 +224,9 @@ Format your response as a JSON object with these exact keys: product_overview, s
 
 Each section should be 2-4 paragraphs of substantive analysis. Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
 
-For lennys_lens specifically: draw only from moments where Lenny himself offers his own synthesis, pattern recognition across guests, or direct opinions — not from moments where he is simply asking questions or summarizing what a guest said. Name him explicitly when using his voice.
+Where the archive contains differing perspectives between experts, surface that tension explicitly rather than flattening it.
 
-Where the archive contains differing perspectives between experts, surface that tension explicitly rather than flattening it.`;
+${lennysLensInstruction}`;
 
     const userMessage = mode === "critique"
       ? `Please critique this product teardown:\n\n${userTeardown}`

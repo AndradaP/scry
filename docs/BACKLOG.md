@@ -9,8 +9,6 @@ Organized by phase — items move up as phases complete.
 ## Phase 2 — In Progress
 
 ### Must Do (Core functionality)
-- [ ] Wire Critique mode to Edge Function (same as Generate — next immediate task)
-- [ ] Wire real chat Q&A to Claude API (currently still returning placeholder responses)
 - [ ] Build RAG pipeline — chunk, embed, and store Lenny's transcripts and newsletters in pgvector
 - [ ] Tag RAG chunks with metadata: speaker, speaker_type, content_type, expertise_domain, episode_date
 - [ ] Build Lenny's Lens retrieval — filter chunks by speaker = "Lenny" AND content_type = "synthesis"
@@ -26,6 +24,7 @@ Organized by phase — items move up as phases complete.
 - [ ] Remove debug console.log statements from history.ts
 - [ ] Google OAuth / sign in with Google (nice-to-have, non-blocking)
 - [ ] Add input validation to Critique mode — if submission is too short (< 50 words) or clearly not a teardown, return a short friendly message instead of a full critique. Something like: "This doesn't look like a product teardown. A teardown analyzes a specific product — its users, problem, solution, growth model, and design. Try submitting 200+ words on a product you want feedback on."
+- [ ] Product URL disambiguation — when product is obscure or ambiguous, surface a best-guess URL or prompt user to confirm before generating teardowngit log HEAD..origin/main --oneline
 
 ---
 
@@ -85,3 +84,5 @@ Organized by phase — items move up as phases complete.
 - [x] Supabase DB persistence — teardowns and history saving to real database (replaced localStorage)
 - [x] Claude API connection — Edge Function deployed, real teardowns generating
 - [x] Prompt engineering guardrails — no em dashes, no sycophancy, no AI filler, factual tone
+- [x] Wire Critique mode to Edge Function (same as Generate — next immediate task)
+- [x] Wire real chat Q&A to Claude API (currently still returning placeholder responses)
