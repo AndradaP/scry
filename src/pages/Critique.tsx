@@ -341,7 +341,7 @@ const Critique = () => {
                 type="text"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
-                placeholder="Product name (required)"
+                placeholder="What are you analyzing? e.g. Figma, Figma's AI agent, Clay's 2026 product updates, Duolingo for chess"
                 className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
               />
             </div>
