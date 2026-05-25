@@ -25,6 +25,11 @@ Organized by phase — items move up as phases complete.
 - [ ] Google OAuth / sign in with Google (nice-to-have, non-blocking)
 - [ ] Add input validation to Critique mode — if submission is too short (< 50 words) or clearly not a teardown, return a short friendly message instead of a full critique. Something like: "This doesn't look like a product teardown. A teardown analyzes a specific product — its users, problem, solution, growth model, and design. Try submitting 200+ words on a product you want feedback on."
 - [ ] Product URL disambiguation — when product is obscure or ambiguous, surface a best-guess URL or prompt user to confirm before generating teardowngit log HEAD..origin/main --oneline
+- [ ] Collapsible sections — each teardown section has a down arrow to expand/collapse.
+      Default state TBD (all open vs. summary-only first).
+
+- [ ] Tighten teardown length — change prompt constraint from "2 paragraphs" 
+      to "3-5 sentences per section" for better compliance and denser output.
 
 ---
 
@@ -36,6 +41,12 @@ Organized by phase — items move up as phases complete.
 - [ ] Configurable teardown depth (user-selectable)
 - [ ] Conflicting perspectives surfacing — when corpus has tension between experts, show it
 - [ ] Master Rubric visibility — consider whether to expose rubric to users in any form
+- [ ] Smart scope narrowing — when user submits a broad product name, do a quick Exa search 
+      for recent updates and surface 2-3 clickable options before generating 
+      (e.g. "General teardown" / "Figma AI features" / "Figma vs Canva") 
+      so users can narrow intent and teardowns can be more focused and current.
+      Requires: new UI component for option cards + additional Edge Function round trip.
+      Build after core teardown quality is stable.
 
 ### Product
 - [ ] Shareable teardowns — public read-only link per teardown

@@ -9,29 +9,33 @@ async function generateSearchQueries(
   userTeardown?: string
 ): Promise<string[]> {
   const prompt = mode === "generate"
-    ? `You are helping search a podcast and newsletter archive of long-form conversations with product leaders, founders, and operators. The archive uses semantic search — it matches meaning, not keywords. Queries that sound like natural spoken sentences retrieve well. Keyword strings retrieve nothing.
+    ? `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms across titles, summaries, tags, and content.
 
 The product to teardown is: "${productName}"
 
 Generate exactly 4 search queries. Follow these rules strictly:
 - Query 1: the product name exactly as given, nothing else
-- Queries 2-4: conversational sentences of 10-15 words describing a concept, dynamic, or strategic question relevant to this product's category
-- Every query must read like something a person would say out loud, not a search string
-- Do not use comma-separated keywords
-- Do not mention the product name in queries 2-4
+- Queries 2-4: pipe-delimited synonym sets covering different strategic angles relevant to this product's category
+- Each pipe-delimited set should have 2-4 terms that mean similar things or are closely related
+- Think about: go-to-market motion, growth model, competitive dynamics, product category
 
 Good examples for a product like "Figma":
-- "how do design tools win adoption from the bottom up inside a company"
-- "what makes a collaboration product sticky when multiple people use it together"
-- "when does a prosumer tool successfully cross into enterprise sales"
+- "bottom-up|PLG|product-led growth"
+- "design tools|creative software|collaboration software"
+- "enterprise adoption|land and expand|B2B expansion"
+
+Good examples for a product like "Notion":
+- "all-in-one|workspace|productivity suite"
+- "bottom-up|PLG|product-led growth"
+- "knowledge management|docs|wiki|notes"
 
 Bad examples (do not write like this):
+- "how do design tools win adoption from the bottom up inside a company"
 - "design tools collaboration growth strategy"
 - "figma enterprise positioning competitive"
-- "product led growth retention monetization"
 
 Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`
-    : `You are helping search a podcast and newsletter archive of long-form conversations with product leaders, founders, and operators. The archive uses semantic search — queries that sound like natural spoken sentences retrieve well. Keyword strings retrieve nothing.
+    : `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms.
 
 A user submitted a product teardown for critique. Generate exactly 4 search queries to find relevant frameworks and expert perspectives.
 
@@ -39,8 +43,14 @@ Teardown excerpt: "${userTeardown?.slice(0, 500)}"
 
 Rules:
 - Query 1: the name of the product being analyzed, exactly as it appears in the teardown
-- Queries 2-4: conversational sentences of 10-15 words about frameworks or dynamics relevant to evaluating this type of product
-- No keyword strings. No comma-separated terms.
+- Queries 2-4: pipe-delimited synonym sets covering frameworks relevant to evaluating this type of product
+- Each set should have 2-4 closely related terms
+- Think about: product strategy frameworks, growth models, critique lenses
+
+Good examples:
+- "retention|churn|engagement|stickiness"
+- "positioning|differentiation|competitive moat"
+- "activation|onboarding|time to value"
 
 Return ONLY a JSON array of 4 strings. No explanation. No markdown.`;
 
@@ -70,8 +80,8 @@ Return ONLY a JSON array of 4 strings. No explanation. No markdown.`;
   }
 
   return mode === "generate"
-    ? [productName ?? "", "how does a bottom up product expand into enterprise accounts", "what makes a B2B product sticky enough that teams keep using it"]
-    : ["product strategy framework teardown", "how do you evaluate whether a product has found real product market fit", "what separates a good product teardown from a shallow one"];
+    ? [productName ?? "", "bottom-up|PLG|product-led growth", "enterprise|land and expand|B2B", "retention|stickiness|engagement"]
+    : ["product strategy|positioning|competitive", "retention|churn|stickiness", "activation|onboarding|time to value"];
 }
 
 async function searchLennyData(query: string, limit = 5): Promise<string> {
@@ -139,6 +149,54 @@ async function searchLennyData(query: string, limit = 5): Promise<string> {
   return "";
 }
 
+async function searchWeb(query: string): Promise<string> {
+  const apiKey = Deno.env.get("EXA_API_KEY") ?? "";
+
+  const response = await fetch("https://api.exa.ai/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      query,
+      num_results: 5,
+      use_autoprompt: true,
+      contents: {
+        text: {
+          max_characters: 1000,
+        },
+      },
+    }),
+  });
+
+  console.log(`Exa search [${query}] status:`, response.status);
+
+  if (!response.ok) {
+    console.error("Exa search failed:", await response.text());
+    return "";
+  }
+
+  const data = await response.json();
+
+  if (!data.results?.length) {
+    console.log(`Exa search [${query}]: 0 results`);
+    return "";
+  }
+
+  console.log(`Exa search [${query}]: ${data.results.length} results`);
+
+  return data.results.map((r: {
+    title: string;
+    url: string;
+    publishedDate?: string;
+    text?: string;
+  }) => {
+    const date = r.publishedDate ? ` (${r.publishedDate.slice(0, 10)})` : "";
+    return `WEB SOURCE: ${r.title}${date}\nURL: ${r.url}\n${r.text ?? ""}`;
+  }).join("\n\n---\n\n");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -187,42 +245,66 @@ ${teardownContext}`;
     const searchQueries = await generateSearchQueries(mode, productName, userTeardown);
     console.log("Generated queries:", searchQueries);
 
-    // ── Step 2: Search LennyData in parallel ─────────────────────────────────
-    const searchResults = await Promise.all(
-      searchQueries.map(q => searchLennyData(q, 4))
-    );
+    // ── Step 2: Search LennyData + web in parallel ───────────────────────────
+    const webQuery = mode === "generate"
+      ? `${productName} product strategy 2026`
+      : `${searchQueries[0]} product strategy 2026`;
 
-    const corpusContext = searchResults.filter(Boolean).join("\n\n===\n\n");
-    console.log("Corpus context length:", corpusContext.length);
+    const [lennyResults, webResults] = await Promise.all([
+      Promise.all(searchQueries.map(q => searchLennyData(q, 5))),
+      searchWeb(webQuery),
+    ]);
 
-    const corpusSection = corpusContext.length > 0
-      ? `LENNY'S ARCHIVE CONTEXT:\n${corpusContext}`
-      : `LENNY'S ARCHIVE CONTEXT:\nNo direct archive coverage found for this product. Draw on your broader knowledge of product strategy, and in Lenny's Lens specifically, identify relevant frameworks or patterns from Lenny's corpus by name — citing the guest, episode theme, or principle — and explain why each applies to this product's situation.`;
+    const lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
+    console.log("Lenny corpus length:", lennyCorpus.length);
+    console.log("Web context length:", webResults.length);
+
+    const lennySection = lennyCorpus.length > 0
+      ? `LENNY'S ARCHIVE — FRAMEWORKS & PHILOSOPHY:\n${lennyCorpus}`
+      : `LENNY'S ARCHIVE — FRAMEWORKS & PHILOSOPHY:\nNo direct archive coverage found. In Lenny's Lens, identify relevant frameworks or patterns from the corpus by name, citing the guest or episode theme, and explain why each applies.`;
+
+    const webSection = webResults.length > 0
+      ? `CURRENT WEB CONTEXT (use for facts, recent developments, current state):\n${webResults}`
+      : `CURRENT WEB CONTEXT:\nNo recent web results found. Note where current information would strengthen the analysis.`;
 
     // ── Step 3: Generate teardown or critique ────────────────────────────────
     const lennysLensInstruction = `For lennys_lens specifically: this section must always be substantive. If the archive returned direct mentions of this product or its founders, use them. If not, identify 2-3 frameworks, patterns, or principles that Lenny or his guests have articulated that directly apply to this product's strategic situation. Name the specific guest, episode theme, or recurring pattern you are drawing from and explain why it applies. Never disclaim lack of coverage. Never leave this section thin. The value of Lenny's Lens is applying the corpus intelligently to a specific product, not just quoting it.`;
 
+    const sourceInstruction = `You have two knowledge sources:
+1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. This is your analytical lens.
+2. CURRENT WEB CONTEXT — use for current facts, recent product developments, leadership, competitive landscape, and anything time-sensitive. Always anchor the teardown in what is true today.
+
+When these sources conflict, trust web context for facts and the archive for frameworks.`;
+
     const systemPrompt = mode === "critique"
-      ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive. Below is relevant content from that archive to ground your analysis.
+      ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
 
-${corpusSection}
+${sourceInstruction}
 
-Using the archive above as your primary intelligence layer, produce a structured critique with exactly 6 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst.
+${lennySection}
+
+${webSection}
+
+Using both sources, produce a structured critique with exactly 6 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section maximum 2 paragraphs — prioritize insight density over coverage.
 
 Format your response as a JSON object with these exact keys: overall_assessment, strengths, gaps_and_blind_spots, framework_alignment, suggested_improvements, lennys_lens.
 
-Each section should be 2-4 paragraphs. Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
+Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
 
 ${lennysLensInstruction}`
-      : `You are a world-class product analyst with access to insights from Lenny Rachitsky's podcast and newsletter archive. Below is relevant content from that archive to ground your analysis.
+      : `You are a world-class product analyst with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
 
-${corpusSection}
+${sourceInstruction}
 
-Using the archive above as your primary intelligence layer, produce a comprehensive full-stack product teardown with exactly 7 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst.
+${lennySection}
+
+${webSection}
+
+Using both sources, produce a comprehensive full-stack product teardown with exactly 7 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section maximum 2 paragraphs — prioritize insight density over coverage.
 
 Format your response as a JSON object with these exact keys: product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights, lennys_lens.
 
-Each section should be 2-4 paragraphs of substantive analysis. Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
+Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
 
 Where the archive contains differing perspectives between experts, surface that tension explicitly rather than flattening it.
 
@@ -241,7 +323,7 @@ ${lennysLensInstruction}`;
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
-        max_tokens: 4000,
+        max_tokens: 3000,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
       }),
