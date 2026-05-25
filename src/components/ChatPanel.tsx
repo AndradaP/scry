@@ -34,7 +34,7 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,8 +84,18 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="text-sm font-mono animate-pulse" style={{ color: "#7A7670" }}>
-                Thinking...
+              <div className="flex items-center gap-[5px] py-1">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="block w-[5px] h-[5px] rounded-full"
+                    style={{
+                      backgroundColor: "#7A7670",
+                      animation: `typing-dot 1.2s ease-in-out infinite`,
+                      animationDelay: `${i * 0.2}s`,
+                    }}
+                  />
+                ))}
               </div>
             </div>
           )}
