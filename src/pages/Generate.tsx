@@ -38,6 +38,7 @@ const Generate = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [teardown, setTeardown] = useState<Record<string, string> | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const [entryId, setEntryId] = useState<string>("");
 
   useEffect(() => {
@@ -102,7 +103,8 @@ const Generate = () => {
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: message };
     const newMessages = [...chatMessages, userMsg];
     setChatMessages(newMessages);
-  
+    setChatLoading(true);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
   
@@ -148,6 +150,8 @@ const Generate = () => {
       }
     } catch (error) {
       console.error("Error in chat:", error);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -193,7 +197,7 @@ const Generate = () => {
               <DownloadButton productName={productName} sections={sections} />
             </div>
             <SectionDisplay sections={sections} />
-            <ChatPanel messages={chatMessages} onSend={handleChatSend} />
+            <ChatPanel messages={chatMessages} onSend={handleChatSend} isLoading={chatLoading} />
           </div>
         )}
       </div>

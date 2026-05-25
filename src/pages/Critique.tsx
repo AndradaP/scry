@@ -68,6 +68,7 @@ const Critique = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [critique, setCritique] = useState<Record<string, string> | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const [entryId, setEntryId] = useState<string>("");
 
   useEffect(() => {
@@ -210,6 +211,7 @@ const Critique = () => {
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: message };
     const newMessages = [...chatMessages, userMsg];
     setChatMessages(newMessages);
+    setChatLoading(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -256,6 +258,8 @@ const Critique = () => {
       }
     } catch (error) {
       console.error("Error in chat:", error);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -374,7 +378,7 @@ const Critique = () => {
             )}
             {!productName && <div className="mb-10" />}
             <SectionDisplay sections={sections} />
-            <ChatPanel messages={chatMessages} onSend={handleChatSend} />
+            <ChatPanel messages={chatMessages} onSend={handleChatSend} isLoading={chatLoading} />
           </div>
         )}
       </div>
