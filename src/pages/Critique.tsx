@@ -109,11 +109,11 @@ const Critique = () => {
           "pdfjs-dist/build/pdf.worker.min.mjs",
           import.meta.url
         ).toString();
-        
+    
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let fullText = "";
-
+    
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
@@ -122,14 +122,15 @@ const Critique = () => {
             .join(" ");
           fullText += pageText + "\n\n";
         }
-
+    
         const extracted = fullText.trim();
         if (!extracted) {
           setValidationError("We couldn't extract text from this PDF. Try copying and pasting your teardown instead.");
           return;
         }
         setTeardownText(extracted);
-      } catch {
+      } catch (err) {
+        console.error("PDF extraction error:", err);
         setValidationError("Something went wrong reading this PDF. Try pasting your teardown as text.");
       }
       return;
@@ -340,14 +341,14 @@ const Critique = () => {
                 type="text"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
-                placeholder="What product is this a teardown of? (optional)"
+                placeholder="Product name (required)"
                 className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
               />
             </div>
 
             <button
               onClick={handleCritique}
-              disabled={!teardownText.trim()}
+              disabled={!teardownText.trim() || !productName.trim()}
               className="mt-8 inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 text-sm font-body font-medium hover:opacity-90 disabled:opacity-30 transition-opacity"
             >
               Get Critique
