@@ -37,22 +37,30 @@ Bad examples (do not write like this):
 Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`
     : `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms.
 
-A user submitted a product teardown for critique. Generate exactly 4 search queries to find relevant frameworks and expert perspectives.
+A user submitted a product teardown for critique. Your job is to generate 4 search queries that will retrieve the most relevant evaluative frameworks and expert perspectives from the archive.
 
-Teardown excerpt: "${userTeardown?.slice(0, 500)}"
+Teardown excerpt: "${userTeardown?.slice(0, 800)}"
 
-Rules:
-- Query 1: the name of the product being analyzed, exactly as it appears in the teardown
-- Queries 2-4: pipe-delimited synonym sets covering frameworks relevant to evaluating this type of product
-- Each set should have 2-4 closely related terms
-- Think about: product strategy frameworks, growth models, critique lenses
+Generate exactly 4 search queries. Follow these rules strictly:
+- Query 1: identify the specific product being analyzed from the teardown text and use its name exactly as it appears. If the product name is ambiguous, use the most distinctive company or product name mentioned in the first paragraph. Never use generic terms like "product teardown" or "unknown product".
+- Queries 2-4: pipe-delimited synonym sets targeting evaluative frameworks relevant to critiquing this type of product. Focus on the lenses a sharp analyst would use to assess this product's strategic position.
 
-Good examples:
+Good examples for critiquing a B2B SaaS product:
 - "retention|churn|engagement|stickiness"
-- "positioning|differentiation|competitive moat"
-- "activation|onboarding|time to value"
+- "positioning|differentiation|competitive moat|7 powers"
+- "PLG|product-led growth|freemium|bottom-up"
 
-Return ONLY a JSON array of 4 strings. No explanation. No markdown.`;
+Good examples for critiquing a consumer product:
+- "growth loops|viral coefficient|word of mouth|referral"
+- "activation|onboarding|aha moment|time to value"
+- "retention|habit formation|engagement|DAU MAU"
+
+Bad examples (do not write like this):
+- "product teardown"
+- "design architecture engineering"
+- "how do you evaluate whether a product has found product market fit"
+
+Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -81,7 +89,7 @@ Return ONLY a JSON array of 4 strings. No explanation. No markdown.`;
 
   return mode === "generate"
     ? [productName ?? "", "bottom-up|PLG|product-led growth", "enterprise|land and expand|B2B", "retention|stickiness|engagement"]
-    : ["product strategy|positioning|competitive", "retention|churn|stickiness", "activation|onboarding|time to value"];
+    : ["product strategy|positioning|competitive", "retention|churn|stickiness", "activation|onboarding|time to value", "PLG|product-led growth|freemium"];
 }
 
 async function searchLennyData(query: string, limit = 5): Promise<string> {
@@ -238,6 +246,33 @@ ${teardownContext}`;
       return new Response(JSON.stringify({ reply: text }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Input validation for critique mode ───────────────────────────────────
+    if (mode === "critique") {
+      const text = userTeardown?.trim() ?? "";
+
+      if (text.length < 150) {
+        return new Response(JSON.stringify({
+          error: "Your teardown is too short to critique. Please provide more analysis.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const nonPrintable = text.split("").filter(
+        (c: string) => c.charCodeAt(0) < 32 || c.charCodeAt(0) > 126
+      ).length;
+      if (nonPrintable / text.length > 0.1) {
+        return new Response(JSON.stringify({
+          error: "We couldn't read your teardown. Please paste the text directly.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const words = text.split(/\s+/).filter((w: string) => w.length > 2);
+      if (words.length < 30) {
+        return new Response(JSON.stringify({
+          error: "This doesn't look like a product teardown. Please write or paste your analysis.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     // ── Step 1: Generate smart search queries ────────────────────────────────

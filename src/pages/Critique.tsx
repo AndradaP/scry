@@ -31,6 +31,33 @@ interface ChatMessage {
   content: string;
 }
 
+const validateTeardown = (text: string): string | null => {
+  const trimmed = text.trim();
+
+  if (trimmed.length < 150) {
+    return "Your teardown is too short. A meaningful critique needs at least a few paragraphs of analysis.";
+  }
+
+  const nonPrintable = trimmed.split("").filter(
+    c => c.charCodeAt(0) < 32 || c.charCodeAt(0) > 126
+  ).length;
+  if (nonPrintable / trimmed.length > 0.1) {
+    return "We couldn't read this file. Try copying and pasting your teardown as text instead.";
+  }
+
+  const words = trimmed.split(/\s+/).filter(w => w.length > 2);
+  if (words.length < 30) {
+    return "This doesn't look like a product teardown. Please write or paste your analysis and try again.";
+  }
+
+  const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length;
+  if (avgWordLength > 12) {
+    return "This looks like it might be encoded or corrupted. Try pasting your teardown as plain text.";
+  }
+
+  return null;
+};
+
 const Critique = () => {
   const { id } = useParams<{ id?: string }>();
   const [activeTab, setActiveTab] = useState<"write" | "upload">("write");
@@ -38,6 +65,7 @@ const Critique = () => {
   const [productName, setProductName] = useState("");
   const [fileName, setFileName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [critique, setCritique] = useState<Record<string, string> | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [entryId, setEntryId] = useState<string>("");
@@ -59,10 +87,54 @@ const Critique = () => {
     }
   }, [id]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setValidationError(null);
+
+    if (file.type === "text/plain" || file.name.endsWith(".txt")) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setTeardownText(ev.target?.result as string);
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.min.mjs",
+          import.meta.url
+        ).toString();
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = "";
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items
+            .map((item: unknown) => (item as { str?: string }).str ?? "")
+            .join(" ");
+          fullText += pageText + "\n\n";
+        }
+
+        const extracted = fullText.trim();
+        if (!extracted) {
+          setValidationError("We couldn't extract text from this PDF. Try copying and pasting your teardown instead.");
+          return;
+        }
+        setTeardownText(extracted);
+      } catch {
+        setValidationError("Something went wrong reading this PDF. Try pasting your teardown as text.");
+      }
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       setTeardownText(ev.target?.result as string);
@@ -71,7 +143,13 @@ const Critique = () => {
   };
 
   const handleCritique = async () => {
-    if (!teardownText.trim()) return;
+    const error = validateTeardown(teardownText);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+
+    setValidationError(null);
     setIsLoading(true);
 
     try {
@@ -95,12 +173,23 @@ const Critique = () => {
       );
 
       const result = await response.json();
+
+      if (result.error) {
+        setValidationError(result.error);
+        setIsLoading(false);
+        return;
+      }
+
       setCritique(result);
       setIsLoading(false);
 
       const newId = crypto.randomUUID();
       setEntryId(newId);
-      const sections = CRITIQUE_SECTIONS.map((s) => ({ key: s.key, label: s.label, content: result[s.key] || "" }));
+      const sections = CRITIQUE_SECTIONS.map((s) => ({
+        key: s.key,
+        label: s.label,
+        content: result[s.key] || "",
+      }));
       await saveEntry({
         id: newId,
         product_name: productName || "Untitled Critique",
@@ -111,6 +200,7 @@ const Critique = () => {
       });
     } catch (error) {
       console.error("Error generating critique:", error);
+      setValidationError("Something went wrong. Please try again.");
       setIsLoading(false);
     }
   };
@@ -119,14 +209,14 @@ const Critique = () => {
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: message };
     const newMessages = [...chatMessages, userMsg];
     setChatMessages(newMessages);
-  
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-  
+
       const teardownContext = sections
         .map((s) => `${s.label}:\n${s.content}`)
         .join("\n\n");
-  
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-teardown`,
         {
@@ -143,7 +233,7 @@ const Critique = () => {
           }),
         }
       );
-  
+
       const result = await response.json();
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -152,7 +242,7 @@ const Critique = () => {
       };
       const updatedMessages = [...newMessages, assistantMsg];
       setChatMessages(updatedMessages);
-  
+
       if (entryId && critique) {
         await saveEntry({
           id: entryId,
@@ -170,7 +260,11 @@ const Critique = () => {
 
   const critiqueTitle = productName || "Critique";
   const sections = critique
-    ? CRITIQUE_SECTIONS.map((s) => ({ key: s.key, label: s.label, content: critique[s.key] || "" }))
+    ? CRITIQUE_SECTIONS.map((s) => ({
+        key: s.key,
+        label: s.label,
+        content: critique[s.key] || "",
+      }))
     : [];
 
   return (
@@ -204,7 +298,10 @@ const Critique = () => {
             {activeTab === "write" ? (
               <textarea
                 value={teardownText}
-                onChange={(e) => setTeardownText(e.target.value)}
+                onChange={(e) => {
+                  setTeardownText(e.target.value);
+                  setValidationError(null);
+                }}
                 placeholder="Write or paste your teardown here..."
                 className="w-full h-64 bg-transparent border border-border focus:border-primary outline-none p-4 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 resize-none transition-colors"
               />
@@ -230,6 +327,12 @@ const Critique = () => {
                   </div>
                 )}
               </label>
+            )}
+
+            {validationError && (
+              <p className="mt-3 text-sm font-body text-red-400">
+                {validationError}
+              </p>
             )}
 
             <div className="mt-6">
@@ -264,7 +367,9 @@ const Critique = () => {
               <DownloadButton productName={critiqueTitle} sections={sections} />
             </div>
             {productName && (
-              <p className="font-mono text-sm text-muted-foreground mb-10">{productName}</p>
+              <p className="font-mono text-sm text-muted-foreground mb-10">
+                {productName}
+              </p>
             )}
             {!productName && <div className="mb-10" />}
             <SectionDisplay sections={sections} />
