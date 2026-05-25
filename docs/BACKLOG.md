@@ -12,24 +12,20 @@ Organized by phase — items move up as phases complete.
 - [ ] Build RAG pipeline — chunk, embed, and store Lenny's transcripts and newsletters in pgvector
 - [ ] Tag RAG chunks with metadata: speaker, speaker_type, content_type, expertise_domain, episode_date
 - [ ] Build Lenny's Lens retrieval — filter chunks by speaker = "Lenny" AND content_type = "synthesis"
-- [ ] Integrate web search (Tavily or Exa) for live product context in teardowns
-- [ ] Build file upload parsing for Critique mode (.pdf, .docx, .txt)
 - [ ] Add saliency detection to prompt — feature submission vs. company submission adjusts depth
+- [ ] Stream Claude API responses for better perceived performance
 
 ### Polish (Phase 2 quality of life)
 - [ ] Replace signup alert() with proper in-page success message
 - [ ] Add loading button state on signup/login (visual feedback on click)
-- [ ] Reduce Claude API max_tokens from 4000 to 2500 for faster responses - under consideration
-- [ ] Stream Claude API responses for better perceived performance
 - [ ] Remove debug console.log statements from history.ts
 - [ ] Google OAuth / sign in with Google (nice-to-have, non-blocking)
-- [ ] Add input validation to Critique mode — if submission is too short (< 50 words) or clearly not a teardown, return a short friendly message instead of a full critique. Something like: "This doesn't look like a product teardown. A teardown analyzes a specific product — its users, problem, solution, growth model, and design. Try submitting 200+ words on a product you want feedback on."
-- [ ] Product URL disambiguation — when product is obscure or ambiguous, surface a best-guess URL or prompt user to confirm before generating teardowngit log HEAD..origin/main --oneline
 - [ ] Collapsible sections — each teardown section has a down arrow to expand/collapse.
       Default state TBD (all open vs. summary-only first).
-
-- [ ] Tighten teardown length — change prompt constraint from "2 paragraphs" 
+- [ ] Tighten teardown length — change prompt constraint from "2 paragraphs"
       to "3-5 sentences per section" for better compliance and denser output.
+- [ ] Product URL disambiguation — when product is obscure or ambiguous, surface a best-guess
+      URL or prompt user to confirm before generating teardown. Add to backlog for Cursor.
 
 ---
 
@@ -41,12 +37,11 @@ Organized by phase — items move up as phases complete.
 - [ ] Configurable teardown depth (user-selectable)
 - [ ] Conflicting perspectives surfacing — when corpus has tension between experts, show it
 - [ ] Master Rubric visibility — consider whether to expose rubric to users in any form
-- [ ] Smart scope narrowing — when user submits a broad product name, do a quick Exa search 
-      for recent updates and surface 2-3 clickable options before generating 
-      (e.g. "General teardown" / "Figma AI features" / "Figma vs Canva") 
-      so users can narrow intent and teardowns can be more focused and current.
-      Requires: new UI component for option cards + additional Edge Function round trip.
-      Build after core teardown quality is stable.
+- [ ] Smart scope narrowing — when user submits a broad product name, do a quick Exa search
+      for recent updates and surface 2-3 clickable options post-generation (not pre-generation)
+      e.g. "Go deeper on Figma's AI agent" / "Compare vs Canva" 
+      Preferred: Option B — generate immediately, surface drill-down angles in parallel.
+      No extra wait time for the user.
 
 ### Product
 - [ ] Shareable teardowns — public read-only link per teardown
@@ -54,6 +49,23 @@ Organized by phase — items move up as phases complete.
 - [ ] User profiles to personalize teardowns over time
 - [ ] Weekly newsletter pipeline (cron job + Resend or Loops)
 - [ ] Newsletter as separate product vs. integrated — decision needed
+- [ ] Adversarial self-refinement loop ("Push Deeper" button)
+      After initial teardown generates, user can trigger a second pass where the output
+      is internally critiqued and a stronger version is produced.
+
+      Preferred: Option C — user-triggered via "Push Deeper" button post-generation.
+      Keeps initial load fast, creates engagement moment, natural monetization gate
+      (free users get one pass, paid users unlock refinement).
+
+      Other options considered:
+      - Option A: Silent refinement — always runs critique + regenerate before showing output.
+        Better quality floor, but adds 20-40s to every generation. No user control.
+      - Option B: Show the process — display initial teardown, then critique, then refined version.
+        Educational and transparent, but heavy UX. Better fit for a learning-focused mode.
+
+      Implementation: new Edge Function call triggered by button click, passes current
+      teardown output as context for critique + regeneration in one prompt.
+      Requires: "Push Deeper" button in TeardownDisplay, new mode in Edge Function.
 
 ### UI & Design
 - [ ] Visuals in teardowns:
@@ -71,6 +83,9 @@ Organized by phase — items move up as phases complete.
 - [ ] Monetization model decision: freemium (X teardowns/month free) vs. subscription vs. one-time
 - [ ] Analytics and usage tracking
 - [ ] Vercel deployment (currently local only)
+- [ ] PDF extraction — implement server-side via Edge Function base64 approach.
+      Browser-side pdfjs has Vite compatibility issues with newer versions.
+      Current workaround: pdfjs-dist@4.4.168 working in browser. Monitor for breakage.
 
 ---
 
@@ -95,5 +110,14 @@ Organized by phase — items move up as phases complete.
 - [x] Supabase DB persistence — teardowns and history saving to real database (replaced localStorage)
 - [x] Claude API connection — Edge Function deployed, real teardowns generating
 - [x] Prompt engineering guardrails — no em dashes, no sycophancy, no AI filler, factual tone
-- [x] Wire Critique mode to Edge Function (same as Generate — next immediate task)
-- [x] Wire real chat Q&A to Claude API (currently still returning placeholder responses)
+- [x] Wire Critique mode to Edge Function
+- [x] Wire real chat Q&A to Claude API
+- [x] LennyData MCP connected — SSE parsing working, named entity + pipe-delimited queries
+- [x] Exa web search integrated — teardowns grounded in current facts
+- [x] Two-step query pipeline — Haiku generates queries, Sonnet generates teardown
+- [x] Pipe-delimited query format — corpus jumped from 10k to 28k+ characters
+- [x] Critique query generation — extracts product name from teardown text automatically
+- [x] PDF extraction in Critique upload — pdfjs-dist@4.4.168 working in browser
+- [x] Input validation in Critique mode — frontend + Edge Function guards against gibberish
+- [x] Product name required in Critique mode — improves Query 1 retrieval
+- [x] Critique input label updated — "What are you analyzing?" with flexible examples

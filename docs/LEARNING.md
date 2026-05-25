@@ -59,6 +59,12 @@ Triggered during build sessions with \learning — revisited when time allows.
 - What the M, A, D indicators mean in Cursor's file tree
 - Branches: what they are and when we'll need them
 
+**Lessons learned in the build:**
+- `git pull --no-rebase origin main` is the safest default for solo projects
+- Remote can get ahead of local when editing files directly on GitHub (e.g. README)
+- Always check `git log HEAD..origin/main --oneline` before panicking about rejected pushes
+- `git show <commit-hash>:src/path/to/file.tsx` shows a file at a specific commit
+
 ---
 
 ## 6. Environment Variables & `.env.local`
@@ -69,6 +75,14 @@ Triggered during build sessions with \learning — revisited when time allows.
 - The difference between `.env`, `.env.local`, `.env.production`
 - What `VITE_` prefix means and why it's required for this project
 - Why `.env.local` must be in `.gitignore`
+
+**Lessons learned:**
+- Supabase secrets set via `supabase secrets set KEY=value` in terminal
+- Frontend vars must be prefixed with `VITE_` to be accessible in React
+- Never commit API keys — they belong in .env or Supabase secrets
+
+---
+
 ## 7. React Fundamentals — How The Shard Is Built
 **Context:** Learning session covering the structure, logic, and language of the frontend codebase.
 **Status:** Covered at a high level — good foundation established.
@@ -81,72 +95,4 @@ Triggered during build sessions with \learning — revisited when time allows.
 ### The app tree mental model
 - React apps are trees of components — big frames made of smaller frames (like Figma)
 - `App.tsx` is the root; it defines routes; routes render pages; pages use components; components use smaller components
-- Reference: `docs/the-shard-app-tree.jsx` — interactive diagram of The Shard's full tree
-
-### Pages vs Components
-- Pages live in `src/pages/` — each file is one screen, shown by the router at a specific URL
-- Components live in `src/components/` — reusable building blocks used across multiple pages
-- Utilities live in `src/lib/` — non-UI logic like the Supabase client and history helpers
-
-### Routing — React Router
-- Traditional websites load a new HTML file for each URL
-- React apps have one HTML file; React Router intercepts URL changes and swaps which component renders
-- This is called a Single Page Application (SPA) — no page reloads, instant navigation
-- Routes are defined in `App.tsx`: `<Route path="/generate" element={<Generate />} />`
-
-### `const` — variable declaration
-- `const` creates a variable that cannot be reassigned (always points to the same thing)
-- Use `let` when you need to reassign; use `const` for almost everything in React
-- "Constant" means the pointer doesn't change, not that the value inside can't change
-
-### `useState` — state initialization and management
-- Pattern: `const [variable, setVariable] = useState(initialValue)`
-- `variable` = current value; `setVariable` = function to update it; `initialValue` = starting value
-- When you call `setVariable(newValue)`, React re-renders the component automatically
-- Regular variables don't trigger re-renders — that's why we use useState
-
-### Props — passing data between components
-- Props are arguments passed into a component from its parent
-- Example: `<Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />`
-- `onToggleSidebar` is the prop name; the arrow function is the value
-- Props flow DOWN (parent to child); events flow UP (child calls a function the parent passed down)
-- TypeScript `interface` defines what props a component accepts
-
-### Events vs Effects — the two on-ramps to state change
-- **Event** — user action triggers it (click, type, submit) → calls setState → re-render
-- **Effect** — app lifecycle triggers it (component loads, dependency changes) → calls setState → re-render
-- Both feed state; state feeds the UI
-- Key insight: "Effects exist to synchronize state with the outside world (Supabase, APIs, browser). Events exist to respond to the user."
-- `useEffect(() => { ... }, [])` — the `[]` means run once on load; `[someVar]` means run when someVar changes
-
-### How to find things in the codebase
-- Wrong text on landing page → `src/pages/index.tsx`
-- Wrong text in header → `src/components/Header.tsx`
-- Layout broken everywhere → `src/components/AppLayout.tsx`
-- Supabase not connecting → `src/lib/supabase.ts`
-- Routing wrong → `src/App.tsx`
-- Search across all files: Cmd+Shift+F in Cursor
-
----
-
-## 8. Google Sign-In / OAuth
-**Context:** Mentioned as a nice-to-have for login.
-**Topics to cover:**
-- What OAuth is and how it differs from email/password auth
-- How Supabase handles Google sign-in (one toggle in dashboard + client code)
-- What happens to existing email/password users when OAuth is added
-- When to add this (after core app is working, not before)
-
----
-
-## 9. Browser Developer Tools
-**Context:** Used to debug the Supabase connection issue — console, network tab, elements inspector.
-**Topics to cover:**
-- Console tab: what it shows, how to read errors vs warnings
-- Network tab: how to see requests being sent to external services like Supabase
-- Elements tab: inspecting the DOM, finding what's selected
-- How to open dev tools on Mac (View → Developer, or Cmd+Option+I when it works)
-
----
-
-*Add new entries with \learning during build sessions.*
+- Reference: `docs/the-shard-app-tree.js
