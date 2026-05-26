@@ -2,70 +2,71 @@
 
 A prioritized list of everything to build, fix, or explore.
 Updated as ideas come up during build sessions.
-Organized by phase — items move up as phases complete.
 
 ---
 
-## Pre-Launch Checklist (before LinkedIn / public sharing)
+## v1 - Pre-Launch Checklist (before LinkedIn / public sharing)
 
-- [ ] Password reset flow — "Forgot password?" on login page. Supabase built-in email reset. Blocker before public sharing.
-- [ ] Rate limiting — max N teardowns + N chat messages per user per day. Prevents API abuse before public sharing.
-- [ ] Chat loading state — show a typing indicator or spinner while Q&A response is generating. Fresh users think it's broken without it.
-- [ ] Collapsible sections — each teardown section has a chevron toggle. Wall of text kills first impressions.
-- [ ] Tighten output length — change prompt constraint to "3-5 sentences per section" for denser output.
-- [ ] Signup UX — replace alert() with inline success message.
+### Completed
+- [x] Password reset flow — "Forgot password?" on login page, Supabase built-in email reset
+- [x] Chat loading state — typing indicator while Q&A response generates
+- [x] Collapsible sections — chevron toggle on each teardown section
+- [x] Tighten output length — 3-5 sentences per section prompt constraint
+- [x] Signup UX — inline success message, no alert popup
+- [x] Loading messages — 5 thematic messages at 8s each, stops on last
+
+### Fixes Needed
+- [ ] Fix: usage counter 406 error — RLS/permissions on usage_limits table
+- [ ] Fix: trash icon delete not working in sidebar
+- [ ] Fix: login error still showing as alert popup, needs inline message
+
+### Still To Build
+- [ ] Usage counter — move off header, show on generate/critique page instead
+- [ ] Developer bypass — skip rate limiting for owner account
+- [ ] Shareable teardowns — public read-only link, no account needed to view
 
 ---
 
-## Phase 2 — In Progress
+## Phase 1 — Lovable Protptype - v0 [DONE]
 
-### Must Do
-- [ ] Add saliency detection to prompt — feature submission vs. company submission adjusts depth
+## Phase 2 — App Build - v1/v2 - Ideas to consider [PROGRESSING]
+
 - [ ] Stream Claude API responses for better perceived performance
-- [ ] Chat loading indicator — typing indicator or subtle spinner in chat panel while waiting for response
-
-### Polish
-- [ ] Delete history entries — select / select all + delete in sidebar. Simplest first: single entry delete via trash icon on hover.
-- [ ] Replace signup alert() with proper in-page success message
 - [ ] Add loading button state on signup/login
 - [ ] Remove debug console.log statements from history.ts
 - [ ] Google OAuth / sign in with Google (nice-to-have, non-blocking)
 - [ ] Product URL disambiguation — when product name is obscure, surface best-guess URL or confirm before generating
-[ ] Source bibliography — collect LennyData source URLs returned with each search 
-      result and render a "Sources" section at the bottom of each teardown with links 
-      back to the actual podcast episodes and newsletter posts. Differentiating — makes 
-      The Shard feel like a research tool. Moderate effort.
-      Note: inline footnote citations are a more elegant version of this — backlog for later.
-- [ ] Loading messages cycle too fast and repeat a few times (about 5) for Teardowns and Critiques alike. Fix: slow the rotation 
-      interval (consider ~2x) and stop on the last message until generation completes.
+- [ ] Source bibliography — collect LennyData source URLs and render a Sources section at bottom of teardown with links to episodes and newsletters. Inline footnote citations are a more elegant version — backlog for later.
+- [ ] User timezone for rate limit messages — detect browser timezone, show "resets at midnight EST" instead of generic midnight
+- [ ] Consider: Lead with strategic tension — add prompt instruction to identify the single highest-stakes unresolved paradox before writing any section, use every section as evidence for or against resolving it
 
 ---
 
-## Phase 3 — Planned
+## Phase 3 — Brainstorming for later
 
 ### Intelligence
-- [ ] Custom RAG pipeline — contingency only. Only build if LennyData MCP becomes insufficient (downtime, retrieval limits, speaker filtering needs). Current MCP retrieval quality is solid.
+- [ ] Custom RAG pipeline — contingency only, build if LennyData MCP becomes insufficient
 - [ ] Knowledge Graph layer (nodes: experts, frameworks, companies; edges: relationships)
 - [ ] Guest persona lenses: Growth / Design / Strategy / Investor
 - [ ] Configurable teardown depth (user-selectable)
-- [ ] Conflicting perspectives surfacing — when corpus has tension between experts, show it explicitly
-- [ ] Master Rubric visibility — consider whether to expose rubric to users
-- [ ] Smart scope narrowing — post-generation, surface 2-3 drill-down angles using Exa results
-      that ran in parallel. No extra wait time. e.g. "Go deeper on Figma's AI agent"
+- [ ] Conflicting perspectives surfacing — show tension between experts explicitly
+- [ ] Master Rubric visibility — consider whether to expose to users
+- [ ] Smart scope narrowing — post-generation, surface 2-3 drill-down angles using Exa results in parallel
+- [ ] Saliency detection — feature vs company submission adjusts teardown depth
 
 ### Product
-- [ ] Shareable teardowns — public read-only link per teardown
+- [ ] Shareable teardowns — public read-only link (also in pre-launch)
 - [ ] Rating/feedback mechanism on teardown quality
 - [ ] User profiles to personalize teardowns over time
 - [ ] Weekly newsletter pipeline (cron job + Resend or Loops)
-- [ ] Newsletter as separate product vs. integrated — decision needed
+- [ ] Newsletter as separate product vs integrated — decision needed
 - [ ] Adversarial self-refinement loop ("Push Deeper" button)
       User-triggered second pass — teardown gets internally critiqued and regenerated.
       Natural monetization gate: free users get one pass, paid users unlock refinement.
-      Options considered:
-      - Option A: Silent — always runs before showing output. Adds 20-40s, no user control.
-      - Option B: Show process — display draft, critique, then final. Educational but heavy UX.
-      - Option C (preferred): User-triggered post-generation "Push Deeper" button.
+      Options:
+      - Option A: Silent — always runs before output. Adds 20-40s, no user control.
+      - Option B: Show process — draft, critique, final. Educational but heavy UX.
+      - Option C (preferred): User-triggered "Push Deeper" button post-generation.
       Requires: new Edge Function mode, button in TeardownDisplay.
 
 ### UI & Design
@@ -76,9 +77,10 @@ Organized by phase — items move up as phases complete.
 - [ ] Micro-animations — spark effect on submit, staggered section fade-in
 
 ### Monetization & Scale
-- [ ] Monetization model decision — freemium (N teardowns/month) vs. subscription vs. one-time
+- [ ] Monetization model decision — freemium (5 teardowns/day free, 10 paid) vs subscription
 - [ ] Analytics and usage tracking
 - [ ] Custom domain (currently the-shard-five.vercel.app)
+- [ ] Show what they're missing on limit hit — sales moment for paid tier upgrade
 
 ---
 
@@ -116,5 +118,17 @@ Organized by phase — items move up as phases complete.
 - [x] Critique input label updated — "What are you analyzing?" with flexible examples
 - [x] Vercel deployment — live at the-shard-five.vercel.app
 - [x] Dev branch setup — main deploys to Vercel, dev is working branch
-- [x] Product URL — surface first Exa result URL as "Visit product →" link under 
-      product name in generate mode output.
+- [x] Product URL — "Visit product →" amber-gold link under product name in generate mode
+- [x] Chat loading indicator — animated dots while waiting for response
+- [x] Password reset flow — forgot password link, Supabase email reset, /reset-password page
+- [x] Signup inline message — replaced alert() with inline success message
+- [x] Collapsible sections — chevron toggle on each section
+- [x] Tighten output length — 3-5 sentences per section prompt constraint
+- [x] Loading messages — 5 thematic messages, 8s each, stops on last
+- [x] Usage counter — shows X of 5 today in header (RLS fix pending)
+- [x] Rate limiting — 5 teardowns/day and 10 chat messages/teardown in Edge Function
+- [x] vercel.json — SPA routing config so React Router paths work on Vercel
+- [x] JSON parse resilience — salvage attempt if Claude response has syntax error
+- [x] Git email fix — resolved Vercel deployment blocking due to local machine email
+- [x] Product URL — prefer URLs on product's own domain over third-party sites
+- [x] Rate limiting — 5 teardowns/day, 10 chat messages/teardown, resets midnight UTC
