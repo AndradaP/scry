@@ -185,6 +185,7 @@ const Critique = () => {
 
       setCritique(result);
       setIsLoading(false);
+      window.dispatchEvent(new Event("shard_usage_updated"));
 
       const newId = crypto.randomUUID();
       setEntryId(newId);
