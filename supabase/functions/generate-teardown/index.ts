@@ -309,7 +309,9 @@ ${teardownContext}`;
 1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. This is your analytical lens.
 2. CURRENT WEB CONTEXT — use for current facts, recent product developments, leadership, competitive landscape, and anything time-sensitive. Always anchor the teardown in what is true today.
 
-When these sources conflict, trust web context for facts and the archive for frameworks.`;
+When these sources conflict, trust web context for facts and the archive for frameworks.
+
+CRITICAL: Your response must be valid JSON only. Do not use unescaped quotes inside string values. Do not use backticks inside strings. Escape any apostrophes or special characters properly. Never output markdown outside of the JSON structure.`;
 
     const systemPrompt = mode === "critique"
       ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
@@ -320,7 +322,7 @@ ${lennySection}
 
 ${webSection}
 
-Using both sources, produce a structured critique with exactly 6 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section maximum 2 paragraphs — prioritize insight density over coverage.
+Using both sources, produce a structured critique with exactly 6 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
 
 Format your response as a JSON object with these exact keys: overall_assessment, strengths, gaps_and_blind_spots, framework_alignment, suggested_improvements, lennys_lens.
 
@@ -335,7 +337,7 @@ ${lennySection}
 
 ${webSection}
 
-Using both sources, produce a comprehensive full-stack product teardown with exactly 7 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section maximum 2 paragraphs — prioritize insight density over coverage.
+Using both sources, produce a comprehensive full-stack product teardown with exactly 7 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
 
 Format your response as a JSON object with these exact keys: product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights, lennys_lens.
 
@@ -367,7 +369,19 @@ ${lennysLensInstruction}`;
     const data = await response.json();
     const text = data.content[0].text;
     const clean = text.replace(/```json\n?|\n?```/g, "").trim();
-    const parsed = JSON.parse(clean);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch (e) {
+      console.error("JSON parse failed, attempting salvage:", e.message);
+      const match = clean.match(/\{[\s\S]*\}/);
+      if (match) {
+        parsed = JSON.parse(match[0]);
+      } else {
+        throw new Error(`Failed to parse Claude response: ${e.message}`);
+      }
+    }
 
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
