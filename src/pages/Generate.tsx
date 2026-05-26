@@ -37,6 +37,7 @@ const Generate = () => {
   const [productName, setProductName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [teardown, setTeardown] = useState<Record<string, string> | null>(null);
+  const [productUrl, setProductUrl] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [entryId, setEntryId] = useState<string>("");
@@ -80,6 +81,7 @@ const Generate = () => {
     
       const result = await response.json();
       setTeardown(result);
+      setProductUrl(result.product_url ?? "");
       setIsLoading(false);
     
       const newId = crypto.randomUUID();
@@ -191,9 +193,22 @@ const Generate = () => {
         {teardown && !isLoading && (
           <div>
             <div className="flex items-start justify-between mb-10">
-              <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
-                {productName}
-              </h1>
+              <div>
+                <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
+                  {productName}
+                </h1>
+                {productUrl && (
+                  <a
+                    href={productUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-xs mt-1 inline-block hover:opacity-80 transition-opacity"
+                    style={{ color: "hsl(var(--primary))" }}
+                  >
+                    Visit product →
+                  </a>
+                )}
+              </div>
               <DownloadButton productName={productName} sections={sections} />
             </div>
             <SectionDisplay sections={sections} />

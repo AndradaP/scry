@@ -157,7 +157,7 @@ async function searchLennyData(query: string, limit = 5): Promise<string> {
   return "";
 }
 
-async function searchWeb(query: string): Promise<string> {
+async function searchWeb(query: string): Promise<{ text: string; firstUrl: string }> {
   const apiKey = Deno.env.get("EXA_API_KEY") ?? "";
 
   const response = await fetch("https://api.exa.ai/search", {
@@ -182,19 +182,20 @@ async function searchWeb(query: string): Promise<string> {
 
   if (!response.ok) {
     console.error("Exa search failed:", await response.text());
-    return "";
+    return { text: "", firstUrl: "" };
   }
 
   const data = await response.json();
 
   if (!data.results?.length) {
     console.log(`Exa search [${query}]: 0 results`);
-    return "";
+    return { text: "", firstUrl: "" };
   }
 
   console.log(`Exa search [${query}]: ${data.results.length} results`);
 
-  return data.results.map((r: {
+  const firstUrl: string = data.results[0]?.url ?? "";
+  const text = data.results.map((r: {
     title: string;
     url: string;
     publishedDate?: string;
@@ -203,6 +204,8 @@ async function searchWeb(query: string): Promise<string> {
     const date = r.publishedDate ? ` (${r.publishedDate.slice(0, 10)})` : "";
     return `WEB SOURCE: ${r.title}${date}\nURL: ${r.url}\n${r.text ?? ""}`;
   }).join("\n\n---\n\n");
+
+  return { text, firstUrl };
 }
 
 Deno.serve(async (req) => {
@@ -285,21 +288,21 @@ ${teardownContext}`;
       ? `${productName} product strategy 2026`
       : `${searchQueries[0]} product strategy 2026`;
 
-    const [lennyResults, webResults] = await Promise.all([
+    const [lennyResults, webSearchResult] = await Promise.all([
       Promise.all(searchQueries.map(q => searchLennyData(q, 5))),
       searchWeb(webQuery),
     ]);
 
     const lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
     console.log("Lenny corpus length:", lennyCorpus.length);
-    console.log("Web context length:", webResults.length);
+    console.log("Web context length:", webSearchResult.text.length);
 
     const lennySection = lennyCorpus.length > 0
       ? `LENNY'S ARCHIVE — FRAMEWORKS & PHILOSOPHY:\n${lennyCorpus}`
       : `LENNY'S ARCHIVE — FRAMEWORKS & PHILOSOPHY:\nNo direct archive coverage found. In Lenny's Lens, identify relevant frameworks or patterns from the corpus by name, citing the guest or episode theme, and explain why each applies.`;
 
-    const webSection = webResults.length > 0
-      ? `CURRENT WEB CONTEXT (use for facts, recent developments, current state):\n${webResults}`
+    const webSection = webSearchResult.text.length > 0
+      ? `CURRENT WEB CONTEXT (use for facts, recent developments, current state):\n${webSearchResult.text}`
       : `CURRENT WEB CONTEXT:\nNo recent web results found. Note where current information would strengthen the analysis.`;
 
     // ── Step 3: Generate teardown or critique ────────────────────────────────
@@ -381,6 +384,10 @@ ${lennysLensInstruction}`;
       } else {
         throw new Error(`Failed to parse Claude response: ${e.message}`);
       }
+    }
+
+    if (mode === "generate") {
+      parsed.product_url = webSearchResult.firstUrl;
     }
 
     return new Response(JSON.stringify(parsed), {
