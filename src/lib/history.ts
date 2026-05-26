@@ -50,6 +50,11 @@ export const saveEntry = async (entry: HistoryEntry): Promise<void> => {
   window.dispatchEvent(new Event("shard_history_updated"));
 };
 
+export const deleteEntry = async (id: string): Promise<void> => {
+  await supabase.from("teardowns").delete().eq("id", id);
+  window.dispatchEvent(new Event("shard_history_updated"));
+};
+
 export const getEntry = async (id: string): Promise<HistoryEntry | undefined> => {
   const { data, error } = await supabase
     .from("teardowns")
