@@ -1,7 +1,27 @@
+import { createClient } from "@supabase/supabase-js";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
+
+function getUserIdFromJwt(authHeader: string | null): string | null {
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const token = authHeader.slice(7);
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload.sub ?? null;
+  } catch {
+    return null;
+  }
+}
 
 async function generateSearchQueries(
   mode: string,
@@ -215,10 +235,29 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { productName, mode, userTeardown, chatMessages, teardownContext } = body;
+    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId } = body;
+
+    const userId = getUserIdFromJwt(req.headers.get("Authorization"));
+    const today = new Date().toISOString().slice(0, 10);
 
     // ── Chat mode ────────────────────────────────────────────────────────────
     if (mode === "chat") {
+      // Chat rate limit: 10 messages per teardown
+      if (teardownId) {
+        const { data: teardownRow } = await supabase
+          .from("teardowns")
+          .select("chat_message_count")
+          .eq("id", teardownId)
+          .single();
+
+        if ((teardownRow?.chat_message_count ?? 0) >= 10) {
+          return new Response(JSON.stringify({
+            error: "chat_limit_exceeded",
+            message: "You've reached the 10 message limit for this teardown. Your limit resets at midnight.",
+          }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+
       const systemPrompt = `You are a product expert. The user has received a product teardown or critique shown below. Answer their follow-up questions using the teardown as your primary reference. Be concise, specific, and insightful. Build on the teardown rather than repeating it. No em dashes. Topic-locked to product strategy.
 
 TEARDOWN CONTEXT:
@@ -246,9 +285,31 @@ ${teardownContext}`;
 
       const data = await response.json();
       const text = data.content[0].text;
+
+      if (teardownId) {
+        await supabase.rpc("increment_chat_count", { p_teardown_id: teardownId });
+      }
+
       return new Response(JSON.stringify({ reply: text }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Daily teardown rate limit ────────────────────────────────────────────
+    if (userId) {
+      const { data: usageRow } = await supabase
+        .from("usage_limits")
+        .select("teardown_count")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .single();
+
+      if ((usageRow?.teardown_count ?? 0) >= 5) {
+        return new Response(JSON.stringify({
+          error: "daily_limit_exceeded",
+          message: "You've used all 5 of your teardowns today. Your limit resets at midnight.",
+        }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     // ── Input validation for critique mode ───────────────────────────────────
@@ -384,6 +445,10 @@ ${lennysLensInstruction}`;
       } else {
         throw new Error(`Failed to parse Claude response: ${e.message}`);
       }
+    }
+
+    if (userId) {
+      await supabase.rpc("increment_usage", { p_user_id: userId, p_date: today });
     }
 
     return new Response(JSON.stringify(parsed), {

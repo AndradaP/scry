@@ -126,6 +126,7 @@ const Generate = () => {
           },
           body: JSON.stringify({
             mode: "chat",
+            teardownId: entryId,
             teardownContext,
             chatMessages: [...newMessages.map(m => ({ role: m.role, content: m.content }))],
           }),
