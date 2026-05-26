@@ -20,9 +20,10 @@ const CRITIQUE_SECTIONS = [
 
 const LOADING_MESSAGES = [
   "Reading your teardown...",
+  "Summoning Lenny's council...",
   "Identifying gaps...",
   "Applying frameworks...",
-  "Writing your critique...",
+  "Forging your critique...",
 ];
 
 interface ChatMessage {

@@ -9,8 +9,14 @@ const LoadingState = ({ messages }: LoadingStateProps) => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % messages.length);
-    }, 2400);
+      setCurrentIndex((prev) => {
+        if (prev >= messages.length - 1) {
+          clearInterval(interval);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 5000);
     return () => clearInterval(interval);
   }, [messages.length]);
 
@@ -18,7 +24,7 @@ const LoadingState = ({ messages }: LoadingStateProps) => {
     <div className="py-20">
       <div className="h-0.5 bg-border overflow-hidden mb-12">
         <div className="h-full bg-primary animate-pulse w-full origin-left" 
-             style={{ animation: "loading-bar 2.4s ease-in-out infinite" }} />
+             style={{ animation: "loading-bar 5s ease-in-out infinite" }} />
       </div>
       <p className="font-mono text-sm text-muted-foreground text-center transition-opacity duration-300">
         {messages[currentIndex]}
