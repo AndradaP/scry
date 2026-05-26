@@ -2,7 +2,7 @@
 
 **Product teardowns powered by the best product minds.**
 
-The Shard is an AI-powered product analysis tool that generates deep, structured teardowns of any product or feature — grounded in insights from Lenny Rachitsky's podcast and newsletter archive.
+The Shard is an AI-powered product analysis tool that generates deep, structured teardowns of any product or feature, grounded in insights from Lenny Rachitsky's podcast and newsletter archive.
 
 ## What it does
 
