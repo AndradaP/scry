@@ -342,7 +342,7 @@ ${webSection}
 
 Using both sources, produce a comprehensive full-stack product teardown with exactly 7 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
 
-Format your response as a JSON object with these exact keys: product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights, lennys_lens.
+Format your response as a JSON object with these exact keys: product_url, product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights, lennys_lens. For product_url, provide the official product homepage URL (e.g. "https://figma.com"). If unknown, use an empty string.
 
 Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
 
@@ -384,10 +384,6 @@ ${lennysLensInstruction}`;
       } else {
         throw new Error(`Failed to parse Claude response: ${e.message}`);
       }
-    }
-
-    if (mode === "generate") {
-      parsed.product_url = webSearchResult.firstUrl;
     }
 
     return new Response(JSON.stringify(parsed), {
