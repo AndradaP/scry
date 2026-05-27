@@ -34,7 +34,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           <HistorySidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         )}
         <div className="flex-1 flex flex-col min-w-0">
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 flex flex-col">{children}</main>
           <Footer />
         </div>
       </div>

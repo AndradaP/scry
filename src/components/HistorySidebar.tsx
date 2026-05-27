@@ -69,14 +69,14 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
           isOpen ? "translate-x-0" : "-translate-x-full"
         } lg:relative lg:z-auto ${isOpen ? "lg:translate-x-0" : "lg:-translate-x-full lg:w-0 lg:border-0"}`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <span className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">History</span>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors lg:hidden">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex gap-4 px-4 pt-3 border-b border-border">
+        <div className="flex gap-4 px-4 pt-3 border-b border-border shrink-0">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -92,7 +92,7 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
           ))}
         </div>
 
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 shrink-0">
           <div className="relative">
             <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
@@ -105,7 +105,7 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2">
+        <div className="flex-1 overflow-y-auto min-h-0 px-2">
           {filtered.length === 0 ? (
             <div className="py-12 text-center px-4">
               <p className="font-body text-xs text-muted-foreground mb-3">{emptyMessage().text}</p>

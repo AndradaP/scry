@@ -1,11 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+const FIRE_GRADIENT_OUTER = "radial-gradient(ellipse at 50% 0%, #D4A843 0%, #C4581A 45%, transparent 75%)";
+const FIRE_GRADIENT_INNER = "radial-gradient(ellipse at 50% 0%, #FFD264 0%, #D4A843 30%, #C4581A 65%, transparent 85%)";
+const COAL_GRADIENT = "linear-gradient(90deg, transparent 0%, rgba(196,88,26,0.4) 20%, rgba(212,168,67,0.9) 40%, rgba(255,210,100,1) 50%, rgba(212,168,67,0.9) 60%, rgba(196,88,26,0.4) 80%, transparent 100%)";
+
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hoverCard, setHoverCard] = useState<"generate" | "critique" | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,57 +24,178 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleCardClick = (path: string) => {
-    if (isLoggedIn) {
-      navigate(path);
-    } else {
-      navigate("/login");
-    }
-  };
+  const go = (path: string) => navigate(isLoggedIn ? path : "/login");
 
   return (
     <AppLayout>
-      <div className="max-w-[860px] mx-auto px-6">
-        <div className="pt-24 pb-8">
-          <h1 className="font-heading text-6xl md:text-7xl font-semibold tracking-tight mb-4 text-primary">
+      <div className="flex-1 relative flex flex-col items-center justify-center overflow-hidden">
+
+        {/* Fire shadow — outer */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "500px",
+            height: "320px",
+            background: FIRE_GRADIENT_OUTER,
+            clipPath: "polygon(50% 0%, 96% 100%, 4% 100%)",
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Fire shadow — inner */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "240px",
+            height: "240px",
+            background: FIRE_GRADIENT_INNER,
+            clipPath: "polygon(50% 0%, 88% 100%, 12% 100%)",
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Content */}
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "0 24px" }}>
+          <h1
+            style={{
+              fontFamily: "'Cormorant Garamond', Georgia, serif",
+              fontWeight: 600,
+              fontSize: "52px",
+              color: "#F0EBE0",
+              marginBottom: "12px",
+              lineHeight: 1.1,
+            }}
+          >
             Scry
           </h1>
-          <p className="font-body text-lg text-muted-foreground max-w-md">
+
+          <p
+            style={{
+              fontFamily: "'Inter', system-ui, sans-serif",
+              fontSize: "14px",
+              color: "#A09A92",
+              marginBottom: "48px",
+            }}
+          >
             Product teardowns powered by the best product minds.
           </p>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-24">
-          <button
-            onClick={() => handleCardClick("/generate")}
-            className="group border border-border hover:border-primary p-8 transition-colors duration-200 text-left"
+          {/* Mode cards */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "16px",
+              maxWidth: "560px",
+              margin: "0 auto",
+            }}
           >
-            <div className="flex items-start justify-between mb-6">
-              <h2 className="font-heading text-2xl font-semibold text-foreground">
+            {/* Generate */}
+            <button
+              onClick={() => go("/generate")}
+              onMouseEnter={() => setHoverCard("generate")}
+              onMouseLeave={() => setHoverCard(null)}
+              style={{
+                border: `1px solid ${hoverCard === "generate" ? "rgba(212,168,67,0.75)" : "rgba(212,168,67,0.45)"}`,
+                background: hoverCard === "generate" ? "rgba(212,168,67,0.04)" : "transparent",
+                padding: "24px",
+                textAlign: "left",
+                cursor: "pointer",
+                transition: "border-color 0.15s, background 0.15s",
+                borderRadius: 0,
+              }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+            >
+              <h2
+                style={{
+                  fontFamily: "'Cormorant Garamond', Georgia, serif",
+                  fontWeight: 600,
+                  fontSize: "18px",
+                  color: "#D4A843",
+                  marginBottom: "8px",
+                }}
+              >
                 Generate a Teardown
               </h2>
-              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-amber-accent transition-colors" />
-            </div>
-            <p className="font-body text-sm text-muted-foreground leading-relaxed">
-              Pick a product. Get a full-stack analysis.
-            </p>
-          </button>
+              <p
+                style={{
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  fontSize: "13px",
+                  color: "#A09A92",
+                  margin: 0,
+                }}
+              >
+                Pick a product. Get a full-stack analysis.
+              </p>
+            </button>
 
-          <button
-            onClick={() => handleCardClick("/critique")}
-            className="group border border-border hover:border-primary p-8 transition-colors duration-200 text-left"
-          >
-            <div className="flex items-start justify-between mb-6">
-              <h2 className="font-heading text-2xl font-semibold text-foreground">
+            {/* Critique */}
+            <button
+              onClick={() => go("/critique")}
+              onMouseEnter={() => setHoverCard("critique")}
+              onMouseLeave={() => setHoverCard(null)}
+              style={{
+                border: `1px solid ${hoverCard === "critique" ? "rgba(240,235,224,0.3)" : "rgba(240,235,224,0.15)"}`,
+                background: hoverCard === "critique" ? "rgba(240,235,224,0.03)" : "transparent",
+                padding: "24px",
+                textAlign: "left",
+                cursor: "pointer",
+                transition: "border-color 0.15s, background 0.15s",
+                borderRadius: 0,
+              }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+            >
+              <h2
+                style={{
+                  fontFamily: "'Cormorant Garamond', Georgia, serif",
+                  fontWeight: 600,
+                  fontSize: "18px",
+                  color: "#F0EBE0",
+                  marginBottom: "8px",
+                }}
+              >
                 Critique My Teardown
               </h2>
-              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-amber-accent transition-colors" />
-            </div>
-            <p className="font-body text-sm text-muted-foreground leading-relaxed">
-              Submit your teardown. Get expert feedback.
-            </p>
-          </button>
+              <p
+                style={{
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  fontSize: "13px",
+                  color: "#A09A92",
+                  margin: 0,
+                }}
+              >
+                Submit your analysis. Get expert feedback.
+              </p>
+            </button>
+          </div>
         </div>
+
+        {/* Coal line */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: "1px",
+            background: COAL_GRADIENT,
+            zIndex: 4,
+            pointerEvents: "none",
+          }}
+        />
       </div>
     </AppLayout>
   );

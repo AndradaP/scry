@@ -43,7 +43,7 @@ const Header = ({ onToggleSidebar }: HeaderProps) => {
             </button>
           )}
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <span className="font-heading text-2xl font-semibold tracking-tight text-primary">
+            <span className="font-heading font-semibold tracking-tight" style={{ fontSize: '18px', color: '#D4A843' }}>
               Scry
             </span>
           </Link>
