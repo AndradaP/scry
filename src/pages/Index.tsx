@@ -4,8 +4,8 @@ import Footer from "@/components/Footer";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-const FIRE_GRADIENT_OUTER = "radial-gradient(ellipse at 50% 0%, #D4A843 0%, #C4581A 45%, transparent 75%)";
-const FIRE_GRADIENT_INNER = "radial-gradient(ellipse at 50% 0%, #FFD264 0%, #D4A843 30%, #C4581A 65%, transparent 85%)";
+const FIRE_GRADIENT_OUTER = "radial-gradient(ellipse at center, rgba(212,168,67,0.15) 0%, rgba(196,88,26,0.08) 45%, transparent 70%)";
+const FIRE_GRADIENT_INNER = "radial-gradient(ellipse at center, rgba(255,210,100,0.10) 0%, rgba(212,168,67,0.05) 40%, transparent 65%)";
 const COAL_GRADIENT = "linear-gradient(90deg, transparent 0%, rgba(196,88,26,0.4) 20%, rgba(212,168,67,0.9) 40%, rgba(255,210,100,1) 50%, rgba(212,168,67,0.9) 60%, rgba(196,88,26,0.4) 80%, transparent 100%)";
 
 const Index = () => {
@@ -27,47 +27,53 @@ const Index = () => {
 
   return (
     <AppLayout>
-      {/* Hero — fills remaining viewport height */}
-      <div className="flex-1 relative flex flex-col overflow-hidden">
+      {/* Hero — viewport height, independent of sidebar */}
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
 
-        {/* Fire shadow — outer (z-index 0, behind everything) */}
+        {/* Fire glow — outer soft radial, centered behind wordmark */}
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
-            bottom: 0,
+            top: "30%",
             left: "50%",
-            transform: "translateX(-50%)",
-            width: "500px",
-            height: "320px",
+            transform: "translate(-50%, -50%)",
+            width: "600px",
+            height: "400px",
             background: FIRE_GRADIENT_OUTER,
-            clipPath: "polygon(50% 0%, 96% 100%, 4% 100%)",
             zIndex: 0,
             pointerEvents: "none",
           }}
         />
 
-        {/* Fire shadow — inner (z-index 0) */}
+        {/* Fire glow — inner soft radial */}
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
-            bottom: 0,
+            top: "30%",
             left: "50%",
-            transform: "translateX(-50%)",
-            width: "240px",
-            height: "240px",
+            transform: "translate(-50%, -50%)",
+            width: "320px",
+            height: "220px",
             background: FIRE_GRADIENT_INNER,
-            clipPath: "polygon(50% 0%, 88% 100%, 12% 100%)",
             zIndex: 0,
             pointerEvents: "none",
           }}
         />
 
-        {/* Centered content — flex-1 pushes footer to bottom */}
+        {/* Centered content */}
         <div
-          className="flex-1 flex flex-col items-center justify-center"
-          style={{ position: "relative", zIndex: 2, padding: "0 24px" }}
+          className="flex flex-col items-center"
+          style={{ position: "relative", zIndex: 2, padding: "0 24px", paddingTop: "18vh", flex: 1 }}
         >
           <h1
             style={{
@@ -171,8 +177,10 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Footer — sits at bottom of hero, above coal line */}
-        <Footer />
+        {/* Footer — pinned to bottom of 100vh hero */}
+        <div style={{ marginTop: "auto" }}>
+          <Footer />
+        </div>
 
         {/* Coal line */}
         <div
