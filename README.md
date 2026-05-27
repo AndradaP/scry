@@ -1,8 +1,8 @@
-# The Shard
+# Scry
 
 **Product teardowns powered by the best product minds.**
 
-The Shard is an AI-powered product analysis tool that generates deep, structured teardowns of any product or feature, grounded in insights from Lenny Rachitsky's podcast and newsletter archive.
+Scry is an AI-powered product analysis tool that generates deep, structured teardowns of any product or feature, grounded in insights from Lenny Rachitsky's podcast and newsletter archive.
 
 ## What it does
 
@@ -18,3 +18,8 @@ Both modes include a chat interface for follow-up questions, grounded in the sam
 - Supabase (auth, Postgres, Edge Functions)
 - Anthropic Claude API
 - Lenny's Data (podcast transcripts + newsletter archive)
+- Exa (live web search)
+- Vercel (hosting)
+
+## Live
+[scry.app](https://the-shard-five.vercel.app) *(domain TBD)*
