@@ -298,7 +298,7 @@ const Critique = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-[860px] mx-auto px-6 py-12">
+      <div className="w-full max-w-[860px] mx-auto px-6 py-12">
         {!critique && !isLoading && (
           <div className="py-8">
             <div className="flex gap-6 mb-8 border-b border-border">

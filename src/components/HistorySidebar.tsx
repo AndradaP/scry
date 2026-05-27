@@ -65,7 +65,7 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-72 bg-card border-r border-border flex flex-col transition-transform duration-200 ${
+        className={`fixed top-0 left-0 z-40 min-h-screen w-72 bg-card border-r border-border flex flex-col overflow-hidden transition-transform duration-200 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } lg:relative lg:z-auto ${isOpen ? "lg:translate-x-0" : "lg:-translate-x-full lg:w-0 lg:border-0"}`}
       >

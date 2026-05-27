@@ -1,22 +1,19 @@
-const Footer = () => {
-  return (
-    <footer className="border-t border-border mt-auto">
-      <div className="max-w-[860px] mx-auto px-6 py-4 flex items-center justify-between">
-        <span className="font-heading text-sm font-semibold text-primary">Scry</span>
-        <p className="text-xs font-body text-muted-foreground">
-          Powered by{" "}
-          <a
-            href="https://www.lennysnewsletter.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-foreground transition-colors underline underline-offset-2"
-          >
-            Lenny's Podcast &amp; Newsletter
-          </a>
-        </p>
-      </div>
-    </footer>
-  );
-};
+const Footer = () => (
+  <footer style={{ padding: "12px 24px", textAlign: "right", position: "relative", zIndex: 3 }}>
+    <a
+      href="https://www.lennysnewsletter.com"
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        fontFamily: "'Inter', system-ui, sans-serif",
+        fontSize: "13px",
+        color: "#7A7670",
+        textDecoration: "none",
+      }}
+    >
+      Powered by Lenny's Podcast &amp; Newsletter
+    </a>
+  </footer>
+);
 
 export default Footer;

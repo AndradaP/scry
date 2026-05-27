@@ -9,10 +9,10 @@
     --background: 55 20% 2.4%;
     --foreground: 40 30% 92%;
 
-    --card: 48 8% 10%;
+    --card: 40 1% 8%;
     --card-foreground: 40 30% 92%;
 
-    --popover: 48 8% 10%;
+    --popover: 40 1% 8%;
     --popover-foreground: 40 30% 92%;
 
     --primary: 40 55% 55%;
@@ -68,6 +68,12 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
   }
+}
+
+/* Chat input placeholder */
+.chat-input::placeholder {
+  color: #7A7670;
+  opacity: 1;
 }
 
 @layer utilities {

@@ -186,7 +186,7 @@ const Generate = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-[860px] mx-auto px-6 py-12">
+      <div className="w-full max-w-[860px] mx-auto px-6 py-12">
         {!teardown && !isLoading && (
           <div className="py-16">
             <div className="flex items-center justify-between mb-6">

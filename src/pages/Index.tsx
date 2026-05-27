@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
+import Footer from "@/components/Footer";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -16,11 +17,9 @@ const Index = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsLoggedIn(!!session);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsLoggedIn(!!session);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -28,9 +27,10 @@ const Index = () => {
 
   return (
     <AppLayout>
-      <div className="flex-1 relative flex flex-col items-center justify-center overflow-hidden">
+      {/* Hero — fills remaining viewport height */}
+      <div className="flex-1 relative flex flex-col overflow-hidden">
 
-        {/* Fire shadow — outer */}
+        {/* Fire shadow — outer (z-index 0, behind everything) */}
         <div
           aria-hidden="true"
           style={{
@@ -42,12 +42,12 @@ const Index = () => {
             height: "320px",
             background: FIRE_GRADIENT_OUTER,
             clipPath: "polygon(50% 0%, 96% 100%, 4% 100%)",
-            zIndex: 1,
+            zIndex: 0,
             pointerEvents: "none",
           }}
         />
 
-        {/* Fire shadow — inner */}
+        {/* Fire shadow — inner (z-index 0) */}
         <div
           aria-hidden="true"
           style={{
@@ -59,13 +59,16 @@ const Index = () => {
             height: "240px",
             background: FIRE_GRADIENT_INNER,
             clipPath: "polygon(50% 0%, 88% 100%, 12% 100%)",
-            zIndex: 1,
+            zIndex: 0,
             pointerEvents: "none",
           }}
         />
 
-        {/* Content */}
-        <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "0 24px" }}>
+        {/* Centered content — flex-1 pushes footer to bottom */}
+        <div
+          className="flex-1 flex flex-col items-center justify-center"
+          style={{ position: "relative", zIndex: 2, padding: "0 24px" }}
+        >
           <h1
             style={{
               fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -97,7 +100,7 @@ const Index = () => {
               gridTemplateColumns: "1fr 1fr",
               gap: "16px",
               maxWidth: "560px",
-              margin: "0 auto",
+              width: "100%",
             }}
           >
             {/* Generate */}
@@ -105,6 +108,8 @@ const Index = () => {
               onClick={() => go("/generate")}
               onMouseEnter={() => setHoverCard("generate")}
               onMouseLeave={() => setHoverCard(null)}
+              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
               style={{
                 border: `1px solid ${hoverCard === "generate" ? "rgba(212,168,67,0.75)" : "rgba(212,168,67,0.45)"}`,
                 background: hoverCard === "generate" ? "rgba(212,168,67,0.04)" : "transparent",
@@ -114,8 +119,6 @@ const Index = () => {
                 transition: "border-color 0.15s, background 0.15s",
                 borderRadius: 0,
               }}
-              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
-              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
             >
               <h2
                 style={{
@@ -128,14 +131,7 @@ const Index = () => {
               >
                 Generate a Teardown
               </h2>
-              <p
-                style={{
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  fontSize: "13px",
-                  color: "#A09A92",
-                  margin: 0,
-                }}
-              >
+              <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
                 Pick a product. Get a full-stack analysis.
               </p>
             </button>
@@ -145,6 +141,8 @@ const Index = () => {
               onClick={() => go("/critique")}
               onMouseEnter={() => setHoverCard("critique")}
               onMouseLeave={() => setHoverCard(null)}
+              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
               style={{
                 border: `1px solid ${hoverCard === "critique" ? "rgba(240,235,224,0.3)" : "rgba(240,235,224,0.15)"}`,
                 background: hoverCard === "critique" ? "rgba(240,235,224,0.03)" : "transparent",
@@ -154,8 +152,6 @@ const Index = () => {
                 transition: "border-color 0.15s, background 0.15s",
                 borderRadius: 0,
               }}
-              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
-              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
             >
               <h2
                 style={{
@@ -168,19 +164,15 @@ const Index = () => {
               >
                 Critique My Teardown
               </h2>
-              <p
-                style={{
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  fontSize: "13px",
-                  color: "#A09A92",
-                  margin: 0,
-                }}
-              >
+              <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
                 Submit your analysis. Get expert feedback.
               </p>
             </button>
           </div>
         </div>
+
+        {/* Footer — sits at bottom of hero, above coal line */}
+        <Footer />
 
         {/* Coal line */}
         <div
