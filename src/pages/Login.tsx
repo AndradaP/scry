@@ -10,12 +10,14 @@ const Login = () => {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotStatus, setForgotStatus] = useState<"idle" | "sent" | "error">("idle");
   const [forgotError, setForgotError] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError("");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      alert(error.message);
+      setLoginError(error.message);
     } else {
       window.location.href = "/";
     }
@@ -91,6 +93,9 @@ const Login = () => {
               Forgot password?
             </button>
           </div>
+          {loginError && (
+            <p className="text-sm font-mono" style={{ color: "hsl(var(--destructive))" }}>{loginError}</p>
+          )}
           <button type="submit" className="w-full bg-primary text-primary-foreground py-3 text-sm font-body font-medium hover:opacity-90 transition-opacity">Sign in</button>
           <p className="text-center text-sm text-muted-foreground font-body">
             No account?{" "}
