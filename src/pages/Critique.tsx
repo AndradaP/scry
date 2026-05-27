@@ -71,6 +71,25 @@ const Critique = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [entryId, setEntryId] = useState<string>("");
+  const [usageCount, setUsageCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return;
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from("usage_limits")
+        .select("teardown_count")
+        .eq("user_id", session.user.id)
+        .eq("date", today)
+        .maybeSingle();
+      setUsageCount(data?.teardown_count ?? 0);
+    };
+    fetchCount();
+    window.addEventListener("shard_usage_updated", fetchCount);
+    return () => window.removeEventListener("shard_usage_updated", fetchCount);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -344,11 +363,21 @@ const Critique = () => {
             )}
 
             <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                  What are you analyzing?
+                </label>
+                {usageCount !== null && (
+                  <span style={{ color: "#7A7670", fontFamily: "'DM Mono', monospace", fontSize: "11px" }}>
+                    {usageCount} of 5 teardowns today
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
-                placeholder="What are you analyzing? e.g. Figma, Figma's AI agent, Clay's 2026 product updates, Duolingo for chess"
+                placeholder="e.g. Figma, Figma's AI agent, Clay's 2026 product updates, Duolingo for chess"
                 className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
               />
             </div>

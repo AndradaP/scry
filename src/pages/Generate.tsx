@@ -42,6 +42,25 @@ const Generate = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [entryId, setEntryId] = useState<string>("");
+  const [usageCount, setUsageCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return;
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from("usage_limits")
+        .select("teardown_count")
+        .eq("user_id", session.user.id)
+        .eq("date", today)
+        .maybeSingle();
+      setUsageCount(data?.teardown_count ?? 0);
+    };
+    fetchCount();
+    window.addEventListener("shard_usage_updated", fetchCount);
+    return () => window.removeEventListener("shard_usage_updated", fetchCount);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -169,9 +188,16 @@ const Generate = () => {
       <div className="max-w-[860px] mx-auto px-6 py-12">
         {!teardown && !isLoading && (
           <div className="py-16">
-            <label className="block font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground mb-6">
-              What product do you want to tear down?
-            </label>
+            <div className="flex items-center justify-between mb-6">
+              <label className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                What product do you want to tear down?
+              </label>
+              {usageCount !== null && (
+                <span style={{ color: "#7A7670", fontFamily: "'DM Mono', monospace", fontSize: "11px" }}>
+                  {usageCount} of 5 teardowns today
+                </span>
+              )}
+            </div>
             <input
               type="text"
               value={productName}

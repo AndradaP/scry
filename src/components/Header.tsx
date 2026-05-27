@@ -9,51 +9,21 @@ interface HeaderProps {
 
 const Header = ({ onToggleSidebar }: HeaderProps) => {
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [usageCount, setUsageCount] = useState<number | null>(null);
   const navigate = useNavigate();
-
-  const fetchUsageCount = async (uid: string) => {
-    const today = new Date().toISOString().slice(0, 10);
-    const { data } = await supabase
-      .from("usage_limits")
-      .select("teardown_count")
-      .eq("user_id", uid)
-      .eq("date", today)
-      .maybeSingle();
-    setUsageCount(data?.teardown_count ?? 0);
-  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUserEmail(session?.user?.email ?? null);
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-        fetchUsageCount(session.user.id);
-      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user?.email ?? null);
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-        fetchUsageCount(session.user.id);
-      } else {
-        setUserId(null);
-        setUsageCount(null);
-      }
     });
-
-    const handleUsageUpdate = () => {
-      if (userId) fetchUsageCount(userId);
-    };
-    window.addEventListener("shard_usage_updated", handleUsageUpdate);
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener("shard_usage_updated", handleUsageUpdate);
     };
-  }, [userId]);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -82,11 +52,6 @@ const Header = ({ onToggleSidebar }: HeaderProps) => {
           {userEmail ? (
             <div className="flex items-center gap-4">
               <span className="text-sm font-body text-muted-foreground">{userEmail}</span>
-              {usageCount !== null && (
-                <span className="text-xs font-mono" style={{ color: "#5A5550" }}>
-                  {usageCount} of 5 today
-                </span>
-              )}
               <button
                 onClick={handleSignOut}
                 className="text-sm font-body text-muted-foreground hover:text-foreground transition-colors"
