@@ -20,7 +20,7 @@ const Header = ({ onToggleSidebar }: HeaderProps) => {
       .select("teardown_count")
       .eq("user_id", uid)
       .eq("date", today)
-      .single();
+      .maybeSingle();
     setUsageCount(data?.teardown_count ?? 0);
   };
 
