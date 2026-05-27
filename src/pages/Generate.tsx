@@ -48,7 +48,7 @@ const Generate = () => {
     const fetchCount = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) return;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date().toLocaleDateString("en-CA");
       const { data } = await supabase
         .from("usage_limits")
         .select("teardown_count")
@@ -95,7 +95,7 @@ const Generate = () => {
             "Authorization": `Bearer ${session?.access_token}`,
             "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ productName, mode: "generate" }),
+          body: JSON.stringify({ productName, mode: "generate", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
         }
       );
     

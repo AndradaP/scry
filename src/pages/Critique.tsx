@@ -77,7 +77,7 @@ const Critique = () => {
     const fetchCount = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) return;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date().toLocaleDateString("en-CA");
       const { data } = await supabase
         .from("usage_limits")
         .select("teardown_count")
@@ -190,6 +190,7 @@ const Critique = () => {
             productName: productName || "Unknown Product",
             mode: "critique",
             userTeardown: teardownText,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
         }
       );

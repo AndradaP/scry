@@ -12,6 +12,14 @@ const supabase = createClient(
 
 const DEV_EMAIL = "ioana.andrada.api@gmail.com";
 
+function getLocalDate(timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
 function getUserFromJwt(authHeader: string | null): { userId: string | null; userEmail: string | null } {
   if (!authHeader?.startsWith("Bearer ")) return { userId: null, userEmail: null };
   const token = authHeader.slice(7);
@@ -237,11 +245,11 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId } = body;
+    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId, timezone } = body;
 
     const { userId, userEmail } = getUserFromJwt(req.headers.get("Authorization"));
     const isDevUser = userEmail === DEV_EMAIL;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalDate(typeof timezone === "string" ? timezone : "UTC");
 
     // ── Chat mode ────────────────────────────────────────────────────────────
     if (mode === "chat") {
