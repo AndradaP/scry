@@ -87,8 +87,8 @@ const Critique = () => {
       setUsageCount(data?.teardown_count ?? 0);
     };
     fetchCount();
-    window.addEventListener("shard_usage_updated", fetchCount);
-    return () => window.removeEventListener("shard_usage_updated", fetchCount);
+    window.addEventListener("scry_usage_updated", fetchCount);
+    return () => window.removeEventListener("scry_usage_updated", fetchCount);
   }, []);
 
   useEffect(() => {
@@ -204,7 +204,7 @@ const Critique = () => {
 
       setCritique(result);
       setIsLoading(false);
-      window.dispatchEvent(new Event("shard_usage_updated"));
+      window.dispatchEvent(new Event("scry_usage_updated"));
 
       const newId = crypto.randomUUID();
       setEntryId(newId);
