@@ -27,7 +27,7 @@ const Login = () => {
     e.preventDefault();
     setForgotStatus("idle");
     const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: "https://scry-five.vercel.app/reset-password",
+      redirectTo: "https://the-shard-five.vercel.app/reset-password",
     });
     if (error) {
       setForgotError(error.message);

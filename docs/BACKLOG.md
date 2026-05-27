@@ -79,7 +79,7 @@ Updated as ideas come up during build sessions.
 ### Monetization & Scale
 - [ ] Monetization model decision — freemium (5 teardowns/day free, 10 paid) vs subscription
 - [ ] Analytics and usage tracking
-- [ ] Custom domain (currently scry-five.vercel.app)
+- [ ] Custom domain (currently the-shard-five.vercel.app)
 - [ ] Show what they're missing on limit hit — sales moment for paid tier upgrade
 
 ---
@@ -116,7 +116,7 @@ Updated as ideas come up during build sessions.
 - [x] Input validation in Critique mode — frontend + Edge Function guards against gibberish
 - [x] Product name required in Critique mode — improves Query 1 retrieval
 - [x] Critique input label updated — "What are you analyzing?" with flexible examples
-- [x] Vercel deployment — live at scry-five.vercel.app
+- [x] Vercel deployment — live at the-shard-five.vercel.app
 - [x] Dev branch setup — main deploys to Vercel, dev is working branch
 - [x] Product URL — "Visit product →" amber-gold link under product name in generate mode
 - [x] Chat loading indicator — animated dots while waiting for response
