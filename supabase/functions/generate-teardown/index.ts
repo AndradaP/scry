@@ -10,16 +10,18 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
 );
 
-function getUserIdFromJwt(authHeader: string | null): string | null {
-  if (!authHeader?.startsWith("Bearer ")) return null;
+const DEV_EMAIL = "ioana.andrada.api@gmail.com";
+
+function getUserFromJwt(authHeader: string | null): { userId: string | null; userEmail: string | null } {
+  if (!authHeader?.startsWith("Bearer ")) return { userId: null, userEmail: null };
   const token = authHeader.slice(7);
   const parts = token.split(".");
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3) return { userId: null, userEmail: null };
   try {
     const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return payload.sub ?? null;
+    return { userId: payload.sub ?? null, userEmail: payload.email ?? null };
   } catch {
-    return null;
+    return { userId: null, userEmail: null };
   }
 }
 
@@ -237,13 +239,14 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId } = body;
 
-    const userId = getUserIdFromJwt(req.headers.get("Authorization"));
+    const { userId, userEmail } = getUserFromJwt(req.headers.get("Authorization"));
+    const isDevUser = userEmail === DEV_EMAIL;
     const today = new Date().toISOString().slice(0, 10);
 
     // ── Chat mode ────────────────────────────────────────────────────────────
     if (mode === "chat") {
       // Chat rate limit: 10 messages per teardown
-      if (teardownId) {
+      if (!isDevUser && teardownId) {
         const { data: teardownRow } = await supabase
           .from("teardowns")
           .select("chat_message_count")
@@ -296,7 +299,7 @@ ${teardownContext}`;
     }
 
     // ── Daily teardown rate limit ────────────────────────────────────────────
-    if (userId) {
+    if (userId && !isDevUser) {
       const { data: usageRow } = await supabase
         .from("usage_limits")
         .select("teardown_count")
