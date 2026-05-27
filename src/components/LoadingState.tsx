@@ -26,7 +26,7 @@ const LoadingState = ({ messages }: LoadingStateProps) => {
         <div className="h-full bg-primary animate-pulse w-full origin-left" 
              style={{ animation: "loading-bar 8s ease-in-out infinite" }} />
       </div>
-      <p className="font-mono text-sm text-muted-foreground text-center transition-opacity duration-300">
+      <p className="font-body text-sm text-muted-foreground text-center transition-opacity duration-300">
         {messages[currentIndex]}
       </p>
       <style>{`

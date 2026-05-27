@@ -194,7 +194,7 @@ const Generate = () => {
                 What product do you want to tear down?
               </label>
               {usageCount !== null && (
-                <span style={{ color: "#7A7670", fontFamily: "'DM Mono', monospace", fontSize: "11px" }}>
+                <span style={{ color: "#A09A92", fontSize: "11px" }}>
                   {usageCount} of 5 teardowns today
                 </span>
               )}

@@ -57,9 +57,10 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] text-sm leading-relaxed font-mono`}
+                className="max-w-[80%] leading-[1.75] font-body"
                 style={{
-                  color: msg.role === "user" ? "#F0EBE0" : "#EDE6D8",
+                  fontSize: "15px",
+                  color: "#F0EBE0",
                 }}
               >
                 {msg.role === "assistant" ? (

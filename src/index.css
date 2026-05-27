@@ -1,11 +1,4 @@
-@import '@fontsource/cormorant-garamond/400.css';
-@import '@fontsource/cormorant-garamond/600.css';
-@import '@fontsource/cormorant-garamond/700.css';
-@import '@fontsource/dm-mono/400.css';
-@import '@fontsource/dm-mono/500.css';
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -29,7 +22,7 @@
     --secondary-foreground: 40 30% 92%;
 
     --muted: 40 4% 14%;
-    --muted-foreground: 36 4% 46%;
+    --muted-foreground: 34 8% 60%;
 
     --accent: 40 55% 55%;
     --accent-foreground: 100 4% 7%;
@@ -54,7 +47,7 @@
 
     --font-heading: 'Cormorant Garamond', Georgia, serif;
     --font-body: 'Inter', system-ui, sans-serif;
-    --font-mono: 'DM Mono', 'Courier New', monospace;
+    --font-mono: 'Inter', system-ui, sans-serif;
 
     --rule-amber: hsla(40, 55%, 55%, 0.2);
   }

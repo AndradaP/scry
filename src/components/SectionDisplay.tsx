@@ -27,7 +27,7 @@ const renderContentWithCitations = (content: string, isLennysLens: boolean) => {
       result.push(<span key={i}>{parts[i]}</span>);
     } else {
       result.push(
-        <span key={i} className="italic text-[14px]" style={{ color: "#7A7670" }}>
+        <span key={i} className="italic text-[14px]" style={{ color: "#A09A92" }}>
           ({parts[i]})
         </span>
       );
@@ -70,7 +70,7 @@ const SectionItem = ({ section, index }: { section: Section; index: number }) =>
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="mt-[8px] pb-2 font-body text-[16px] leading-[1.75] text-foreground whitespace-pre-wrap">
+            <div className="mt-[8px] pb-2 font-body text-[15px] leading-[1.75] text-foreground whitespace-pre-wrap">
               {renderContentWithCitations(section.content, isLennysLens)}
             </div>
           </motion.div>
