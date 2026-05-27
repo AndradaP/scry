@@ -1,4 +1,4 @@
-# The Shard — Lovable Prototype Prompt
+# Scry — Lovable Prototype Prompt
 
 Copy and paste the following prompt into Lovable to scaffold the prototype:
 
@@ -6,7 +6,7 @@ Copy and paste the following prompt into Lovable to scaffold the prototype:
 
 ## PROMPT
 
-Build a web app called **The Shard** — an AI-powered product teardown tool for product managers and PM students.
+Build a web app called **Scry** — an AI-powered product teardown tool for product managers and PM students.
 
 The name is a nod to Tolkien: a shard is a fragment of something ancient and clarifying. Each teardown is a shard of truth about a product. The design should feel like that — sharp, precise, a little weighty.
 
@@ -14,7 +14,7 @@ The name is a nod to Tolkien: a shard is a fragment of something ancient and cla
 
 ### App Overview
 
-The Shard has two core modes:
+Scry has two core modes:
 1. **Generate Mode** — User requests a product teardown; the app generates a structured analysis
 2. **Critique Mode** — User submits their own teardown; the app critiques it
 
@@ -66,7 +66,7 @@ Both modes produce a **read-only output** with a **chat interface docked directl
 ### Pages & Routes
 
 #### 1. `/` — Home / Landing
-- App name **"The Shard"** in large Cormorant Garamond
+- App name **"Scry"** in large Cormorant Garamond
 - Tagline: *"Product teardowns powered by the best product minds."*
 - Two large mode-selection cards side by side — sharp rectangular, 1px amber-gold border on hover:
   - **"Generate a Teardown"** — "Pick a product. Get a full-stack analysis."

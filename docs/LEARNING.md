@@ -1,4 +1,4 @@
-# The Shard — Learning Log
+# Scry — Learning Log
 
 A running list of topics, tools, and concepts to explore in more depth.
 Triggered during build sessions with \learning — revisited when time allows.
@@ -45,7 +45,7 @@ Triggered during build sessions with \learning — revisited when time allows.
 - What a vector is in the context of AI/ML
 - How text gets converted into vectors (embeddings)
 - What semantic similarity means and why it's more powerful than keyword search
-- How pgvector fits into the RAG pipeline for The Shard
+- How pgvector fits into the RAG pipeline for Scry
 - Why we're using pgvector inside Supabase instead of a separate vector DB like Pinecone
 
 ---
@@ -83,7 +83,7 @@ Triggered during build sessions with \learning — revisited when time allows.
 
 ---
 
-## 7. React Fundamentals — How The Shard Is Built
+## 7. React Fundamentals — How Scry Is Built
 **Context:** Learning session covering the structure, logic, and language of the frontend codebase.
 **Status:** Covered at a high level — good foundation established.
 
@@ -95,4 +95,4 @@ Triggered during build sessions with \learning — revisited when time allows.
 ### The app tree mental model
 - React apps are trees of components — big frames made of smaller frames (like Figma)
 - `App.tsx` is the root; it defines routes; routes render pages; pages use components; components use smaller components
-- Reference: `docs/the-shard-app-tree.js
+- Reference: `docs/scry-app-tree.js

@@ -1,4 +1,4 @@
-# The Shard — Product Requirements Document
+# Scry — Product Requirements Document
 
 **Version:** 0.4
 **Last Updated:** May 2026
@@ -8,12 +8,12 @@
 
 ## 1. Overview
 
-**The Shard** is an AI-powered product teardown tool for working PMs and aspiring PMs. It transforms Lenny Rachitsky's podcast transcripts and newsletter content into an intelligent engine that produces deep, structured product teardowns and critiques — on demand.
+**Scry** is an AI-powered product teardown tool for working PMs and aspiring PMs. It transforms Lenny Rachitsky's podcast transcripts and newsletter content into an intelligent engine that produces deep, structured product teardowns and critiques — on demand.
 
-The name is a nod to Tolkien: a shard is a fragment of something ancient and clarifying. Each teardown is a shard of truth about a product. Lenny's content is the fire. The Shard is what comes from it.
+The name is a nod to Tolkien: a shard is a fragment of something ancient and clarifying. Each teardown is a shard of truth about a product. Lenny's content is the fire. Scry is what comes from it.
 
 ### Core Value Proposition
-Most product analysis tools give you surface-level summaries. The Shard gives you the frameworks, vocabulary, and depth of the world's best product thinkers — distilled into a structured teardown of any product you care about. It is evidence-led: every insight traces back to the archive.
+Most product analysis tools give you surface-level summaries. Scry gives you the frameworks, vocabulary, and depth of the world's best product thinkers — distilled into a structured teardown of any product you care about. It is evidence-led: every insight traces back to the archive.
 
 ### Target Users
 - **Working PMs** seeking competitive intelligence and structured frameworks
