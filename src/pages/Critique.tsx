@@ -77,6 +77,7 @@ const Critique = () => {
     const fetchCount = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) return;
+      if (session.user.email === "ioana.andrada.api@gmail.com") return;
       const today = new Date().toLocaleDateString("en-CA");
       const { data } = await supabase
         .from("usage_limits")

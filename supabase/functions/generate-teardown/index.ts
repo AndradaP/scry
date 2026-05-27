@@ -458,7 +458,7 @@ ${lennysLensInstruction}`;
       }
     }
 
-    if (userId) {
+    if (userId && !isDevUser) {
       await supabase.rpc("increment_usage", { p_user_id: userId, p_date: today });
     }
 
