@@ -216,7 +216,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
         <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
-          <p className="text-xs font-mono" style={{ color: "#7A7670" }}>
+          <p className="text-xs font-mono mb-4" style={{ color: "#7A7670" }}>
             Ask a follow-up <span className="opacity-50 ml-2">press /</span>
           </p>
         </div>
