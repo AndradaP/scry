@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import AppLayout from "@/components/AppLayout";
+import Header from "@/components/Header";
+import HistorySidebar from "@/components/HistorySidebar";
 import Footer from "@/components/Footer";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +11,7 @@ const COAL_GRADIENT = "linear-gradient(90deg, transparent 0%, rgba(196,88,26,0.4
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [hoverCard, setHoverCard] = useState<"generate" | "critique" | null>(null);
   const navigate = useNavigate();
 
@@ -26,164 +28,196 @@ const Index = () => {
   const go = (path: string) => navigate(isLoggedIn ? path : "/login");
 
   return (
-    <AppLayout>
-      {/* Hero — fills remaining viewport height */}
-      <div className="flex-1 relative flex flex-col overflow-hidden">
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        background: "hsl(var(--background))",
+      }}
+    >
+      <Header onToggleSidebar={isLoggedIn ? () => setSidebarOpen(!sidebarOpen) : undefined} />
 
-        {/* Fire shadow — outer triangle, base on coal line, tip toward wordmark */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "500px",
-            height: "320px",
-            background: FIRE_GRADIENT_OUTER,
-            clipPath: "polygon(50% 0%, 96% 100%, 4% 100%)",
-            zIndex: 0,
-            pointerEvents: "none",
-          }}
-        />
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+        {isLoggedIn && (
+          <HistorySidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        )}
 
-        {/* Fire shadow — inner triangle */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "240px",
-            height: "240px",
-            background: FIRE_GRADIENT_INNER,
-            clipPath: "polygon(50% 0%, 88% 100%, 12% 100%)",
-            zIndex: 0,
-            pointerEvents: "none",
-          }}
-        />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
 
-        {/* Content — flex-1 fills hero, centers everything */}
-        <div
-          className="flex-1 flex flex-col items-center justify-center"
-          style={{ position: "relative", zIndex: 2, padding: "0 24px" }}
-        >
-          <h1
-            style={{
-              fontFamily: "'Cormorant Garamond', Georgia, serif",
-              fontWeight: 600,
-              fontSize: "52px",
-              color: "#F0EBE0",
-              marginBottom: "12px",
-              lineHeight: 1.1,
-            }}
-          >
-            Scry
-          </h1>
-
-          <p
-            style={{
-              fontFamily: "'Inter', system-ui, sans-serif",
-              fontSize: "14px",
-              color: "#A09A92",
-              marginBottom: "48px",
-            }}
-          >
-            Product teardowns powered by the best product minds.
-          </p>
-
+          {/* Hero — fills remaining height above footer */}
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "16px",
-              maxWidth: "560px",
-              width: "100%",
+              flex: 1,
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              minHeight: 0,
             }}
           >
-            <button
-              onClick={() => go("/generate")}
-              onMouseEnter={() => setHoverCard("generate")}
-              onMouseLeave={() => setHoverCard(null)}
-              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
-              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+            {/* Fire shadow — outer triangle, base on coal line, tip toward wordmark */}
+            <div
+              aria-hidden="true"
               style={{
-                border: `1px solid ${hoverCard === "generate" ? "rgba(212,168,67,0.75)" : "rgba(212,168,67,0.45)"}`,
-                background: hoverCard === "generate" ? "rgba(212,168,67,0.04)" : "transparent",
-                padding: "24px",
-                textAlign: "left",
-                cursor: "pointer",
-                transition: "border-color 0.15s, background 0.15s",
-                borderRadius: 0,
+                position: "absolute",
+                bottom: 0,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "500px",
+                height: "320px",
+                background: FIRE_GRADIENT_OUTER,
+                clipPath: "polygon(50% 0%, 96% 100%, 4% 100%)",
+                zIndex: 0,
+                pointerEvents: "none",
               }}
-            >
-              <h2
-                style={{
-                  fontFamily: "'Cormorant Garamond', Georgia, serif",
-                  fontWeight: 600,
-                  fontSize: "18px",
-                  color: "#D4A843",
-                  marginBottom: "8px",
-                }}
-              >
-                Generate a Teardown
-              </h2>
-              <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
-                Pick a product. Get a full-stack analysis.
-              </p>
-            </button>
+            />
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "240px",
+                height: "240px",
+                background: FIRE_GRADIENT_INNER,
+                clipPath: "polygon(50% 0%, 88% 100%, 12% 100%)",
+                zIndex: 0,
+                pointerEvents: "none",
+              }}
+            />
 
-            <button
-              onClick={() => go("/critique")}
-              onMouseEnter={() => setHoverCard("critique")}
-              onMouseLeave={() => setHoverCard(null)}
-              onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
-              onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+            {/* Content — vertically centered */}
+            <div
               style={{
-                border: `1px solid ${hoverCard === "critique" ? "rgba(240,235,224,0.3)" : "rgba(240,235,224,0.15)"}`,
-                background: hoverCard === "critique" ? "rgba(240,235,224,0.03)" : "transparent",
-                padding: "24px",
-                textAlign: "left",
-                cursor: "pointer",
-                transition: "border-color 0.15s, background 0.15s",
-                borderRadius: 0,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                zIndex: 2,
+                padding: "0 24px",
               }}
             >
-              <h2
+              <h1
                 style={{
                   fontFamily: "'Cormorant Garamond', Georgia, serif",
                   fontWeight: 600,
-                  fontSize: "18px",
+                  fontSize: "52px",
                   color: "#F0EBE0",
-                  marginBottom: "8px",
+                  marginBottom: "12px",
+                  lineHeight: 1.1,
                 }}
               >
-                Critique My Teardown
-              </h2>
-              <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
-                Submit your analysis. Get expert feedback.
+                Scry
+              </h1>
+
+              <p
+                style={{
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  fontSize: "14px",
+                  color: "#A09A92",
+                  marginBottom: "48px",
+                }}
+              >
+                Product teardowns powered by the best product minds.
               </p>
-            </button>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  maxWidth: "560px",
+                  width: "100%",
+                }}
+              >
+                <button
+                  onClick={() => go("/generate")}
+                  onMouseEnter={() => setHoverCard("generate")}
+                  onMouseLeave={() => setHoverCard(null)}
+                  onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+                  onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+                  style={{
+                    border: `1px solid ${hoverCard === "generate" ? "rgba(212,168,67,0.75)" : "rgba(212,168,67,0.45)"}`,
+                    background: hoverCard === "generate" ? "rgba(212,168,67,0.04)" : "transparent",
+                    padding: "24px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    transition: "border-color 0.15s, background 0.15s",
+                    borderRadius: 0,
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontFamily: "'Cormorant Garamond', Georgia, serif",
+                      fontWeight: 600,
+                      fontSize: "18px",
+                      color: "#D4A843",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Generate a Teardown
+                  </h2>
+                  <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
+                    Pick a product. Get a full-stack analysis.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => go("/critique")}
+                  onMouseEnter={() => setHoverCard("critique")}
+                  onMouseLeave={() => setHoverCard(null)}
+                  onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+                  onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+                  style={{
+                    border: `1px solid ${hoverCard === "critique" ? "rgba(240,235,224,0.3)" : "rgba(240,235,224,0.15)"}`,
+                    background: hoverCard === "critique" ? "rgba(240,235,224,0.03)" : "transparent",
+                    padding: "24px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    transition: "border-color 0.15s, background 0.15s",
+                    borderRadius: 0,
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontFamily: "'Cormorant Garamond', Georgia, serif",
+                      fontWeight: 600,
+                      fontSize: "18px",
+                      color: "#F0EBE0",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Critique My Teardown
+                  </h2>
+                  <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
+                    Submit your analysis. Get expert feedback.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Coal line — last child of hero, in normal flow */}
+            <div
+              aria-hidden="true"
+              style={{
+                height: "1px",
+                flexShrink: 0,
+                background: COAL_GRADIENT,
+              }}
+            />
           </div>
+
+          {/* Footer — sibling of hero, below coal line */}
+          <Footer />
         </div>
-
-        {/* Coal line — last child of hero, in normal flow */}
-        <div
-          aria-hidden="true"
-          style={{
-            height: "1px",
-            flexShrink: 0,
-            background: COAL_GRADIENT,
-            position: "relative",
-            zIndex: 4,
-          }}
-        />
       </div>
-
-      {/* Footer — sibling of hero, below coal line */}
-      <Footer />
-    </AppLayout>
+    </div>
   );
 };
 
