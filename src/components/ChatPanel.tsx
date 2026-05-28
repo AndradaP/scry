@@ -11,6 +11,7 @@ interface ChatPanelProps {
   messages: Message[];
   onSend: (message: string) => void;
   isLoading?: boolean;
+  isStreaming?: boolean;
 }
 
 // Render inline (Name, Domain) citations with muted italic style
@@ -24,7 +25,7 @@ const renderWithCitations = (text: string): React.ReactNode[] => {
   );
 };
 
-const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
+const ChatPanel = ({ messages, onSend, isLoading, isStreaming }: ChatPanelProps) => {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -44,7 +45,7 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isStreaming]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +62,7 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
 
       {messages.length > 0 && (
         <div ref={scrollRef} className="max-h-[480px] overflow-y-auto mb-8 space-y-6">
-          {messages.map((msg) => (
+          {messages.map((msg, index) => (
             <div
               key={msg.id}
               className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
@@ -143,6 +144,19 @@ const ChatPanel = ({ messages, onSend, isLoading }: ChatPanelProps) => {
                   >
                     {msg.content}
                   </ReactMarkdown>
+                  {isStreaming && index === messages.length - 1 && (
+                    <span
+                      className="animate-pulse"
+                      style={{
+                        display: "inline-block",
+                        width: "2px",
+                        height: "15px",
+                        background: "#D4A843",
+                        marginLeft: "2px",
+                        verticalAlign: "text-bottom",
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>

@@ -279,7 +279,7 @@ ${teardownContext}`;
         content: m.content,
       }));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -289,20 +289,61 @@ ${teardownContext}`;
         body: JSON.stringify({
           model: "claude-sonnet-4-5",
           max_tokens: 1000,
+          stream: true,
           system: systemPrompt,
           messages,
         }),
       });
 
-      const data = await response.json();
-      const text = data.content[0].text;
+      if (!anthropicResponse.body) {
+        throw new Error("No streaming body from Anthropic");
+      }
 
       if (teardownId) {
         await supabase.rpc("increment_chat_count", { p_teardown_id: teardownId });
       }
 
-      return new Response(JSON.stringify({ reply: text }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+
+      (async () => {
+        const reader = anthropicResponse.body!.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split("\n");
+            buf = lines.pop() ?? "";
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6).trim();
+              if (data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+                  await writer.write(encoder.encode(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`));
+                }
+              } catch { /* skip malformed */ }
+            }
+          }
+          await writer.write(encoder.encode("data: [DONE]\n\n"));
+        } catch (e) {
+          console.error("Chat stream error:", e);
+        } finally {
+          await writer.close();
+        }
+      })();
+
+      return new Response(readable, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
       });
     }
 

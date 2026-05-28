@@ -41,6 +41,7 @@ const Generate = () => {
   const [productUrl, setProductUrl] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatStreaming, setChatStreaming] = useState(false);
   const [entryId, setEntryId] = useState<string>("");
   const [usageCount, setUsageCount] = useState<number | null>(null);
 
@@ -128,14 +129,15 @@ const Generate = () => {
     const newMessages = [...chatMessages, userMsg];
     setChatMessages(newMessages);
     setChatLoading(true);
+    setChatStreaming(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-  
+
       const teardownContext = sections
         .map((s) => `${s.label}:\n${s.content}`)
         .join("\n\n");
-  
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-teardown`,
         {
@@ -149,20 +151,70 @@ const Generate = () => {
             mode: "chat",
             teardownId: entryId,
             teardownContext,
-            chatMessages: [...newMessages.map(m => ({ role: m.role, content: m.content }))],
+            chatMessages: newMessages.map(m => ({ role: m.role, content: m.content })),
           }),
         }
       );
-  
-      const result = await response.json();
-      const assistantMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: result.reply,
-      };
-      const updatedMessages = [...newMessages, assistantMsg];
-      setChatMessages(updatedMessages);
-  
+
+      const isSSE = response.headers.get("content-type")?.includes("text/event-stream") ?? false;
+
+      let finalMessages: ChatMessage[];
+
+      if (!isSSE) {
+        // Edge function not yet streaming — fall back to JSON
+        const result = await response.json();
+        const assistantMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", content: result.reply ?? "" };
+        finalMessages = [...newMessages, assistantMsg];
+        setChatMessages(finalMessages);
+        setChatLoading(false);
+      } else {
+        if (!response.body) throw new Error("No response body");
+
+        const assistantId = crypto.randomUUID();
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        let fullContent = "";
+        let firstChunk = true;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                if (firstChunk) {
+                  setChatLoading(false);
+                  setChatStreaming(true);
+                  setChatMessages([...newMessages, { id: assistantId, role: "assistant", content: "" }]);
+                  firstChunk = false;
+                }
+                fullContent += parsed.text;
+                setChatMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { id: assistantId, role: "assistant" as const, content: fullContent };
+                  return updated;
+                });
+              }
+            } catch { /* skip malformed */ }
+          }
+        }
+
+        setChatStreaming(false);
+
+        finalMessages = [...newMessages, { id: assistantId, role: "assistant" as const, content: fullContent }];
+        setChatMessages(finalMessages);
+      }
+
       if (entryId && teardown) {
         await saveEntry({
           id: entryId,
@@ -170,13 +222,13 @@ const Generate = () => {
           mode: "generate",
           created_at: new Date().toISOString(),
           sections,
-          chatMessages: updatedMessages,
+          chatMessages: finalMessages,
         });
       }
     } catch (error) {
       console.error("Error in chat:", error);
-    } finally {
       setChatLoading(false);
+      setChatStreaming(false);
     }
   };
 
@@ -242,7 +294,7 @@ const Generate = () => {
               <DownloadButton productName={productName} sections={sections} />
             </div>
             <SectionDisplay sections={sections} />
-            <ChatPanel messages={chatMessages} onSend={handleChatSend} isLoading={chatLoading} />
+            <ChatPanel messages={chatMessages} onSend={handleChatSend} isLoading={chatLoading} isStreaming={chatStreaming} />
           </div>
         )}
       </div>
