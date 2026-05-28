@@ -1,134 +1,97 @@
 # Scry — Backlog
-
-A prioritized list of everything to build, fix, or explore.
-Updated as ideas come up during build sessions.
+*(formerly The Shard)*
 
 ---
 
-## v1 - Pre-Launch Checklist (before LinkedIn / public sharing)
-
-### Completed
-- [x] Password reset flow — "Forgot password?" on login page, Supabase built-in email reset
-- [x] Chat loading state — typing indicator while Q&A response generates
-- [x] Collapsible sections — chevron toggle on each teardown section
-- [x] Tighten output length — 3-5 sentences per section prompt constraint
-- [x] Signup UX — inline success message, no alert popup
-- [x] Loading messages — 5 thematic messages at 8s each, stops on last
-
-### Fixes Needed
-- [ ] Fix: usage counter 406 error — RLS/permissions on usage_limits table
-- [ ] Fix: trash icon delete not working in sidebar
-- [ ] Fix: login error still showing as alert popup, needs inline message
+## Alpha — Ship for First Feedback
+*Goal: get the core product in front of working and aspiring PMs for qualitative feedback. Teardown quality, UX clarity, and shareability are the only things that matter at this stage.*
 
 ### Still To Build
-- [ ] Usage counter — move off header, show on generate/critique page instead
-- [ ] Developer bypass — skip rate limiting for owner account
-- [ ] Shareable teardowns — public read-only link, no account needed to view
+- [ ] Shareable teardowns — public read-only link, no account needed to view. All sections fully expanded by default. Preserves full Scry dark aesthetic.
+- [ ] Mobile QA — full pass on iPhone Safari. Check: landing page, login/signup, generate/critique input, teardown result, chat tabs, history sidebar, keyboard behavior.
 
 ---
 
-## Phase 1 — Lovable Protptype - v0 [DONE]
+## Beta — Post-Feedback, Pre-LinkedIn
+*Goal: act on alpha feedback, sharpen teardown quality and reading UX, add feedback mechanisms, fix rough edges before broader public release. Priority order TBD based on feedback received.*
 
-## Phase 2 — App Build - v1/v2 - Ideas to consider [PROGRESSING]
+### Output Quality & Prompt Engineering
+- [ ] Master Rubric implementation — add explicit evaluation pillars to the system prompt (Business Model & Strategy, GTM / Growth Loops, Pricing & Packaging, UX Friction & Value Delivery). Model currently follows section structure without an internal rubric guiding what to look for. This sharpens analysis meaningfully.
+- [ ] Saliency detection — feature vs company submission adjusts teardown depth automatically. Feature-level input narrows to UX/Value Proposition; company-level expands to full Strategy/Growth analysis.
+- [ ] Conflicting perspectives surfacing — structurally instruct the model to look for disagreement across guests and flag it explicitly rather than flattening to consensus. Format: "The archive contains differing perspectives here — [Expert A] emphasizes X while [Expert B] argues Y."
+- [ ] Evals — run 10-15 teardowns on well-known products, score against Master Rubric. Check: are citations accurate, is Lenny's Lens using Lenny's voice only, are sections appropriately scoped?
+- [ ] Consider: Lead with strategic tension — prompt instruction to identify single highest-stakes unresolved paradox before writing any section, use every section as evidence for or against resolving it.
 
-- [ ] Stream Claude API responses for better perceived performance
-- [ ] Add loading button state on signup/login
-- [ ] Remove debug console.log statements from history.ts
-- [ ] Google OAuth / sign in with Google (nice-to-have, non-blocking)
+### Reading & UX
+- [ ] Collapsible sections with summary line — each section shows a Claude-generated one-sentence sharp takeaway when collapsed. Expand to see full analysis. Requires prompt engineering change (add `summary` field per section) + UI toggle update.
+- [ ] Substack-inspired reading UX — progressive disclosure, content feels written for someone specific. Each section summary is a sharp arguable claim, not a description.
+- [ ] Full streaming via NDJSON — teardown/critique sections reveal one by one. Requires prompt format change + new frontend parsing logic. Replaces existing JSON salvage path.
+
+### Intelligence & Corpus
 - [ ] Product URL disambiguation — when product name is obscure, surface best-guess URL or confirm before generating
-- [ ] Source bibliography — collect LennyData source URLs and render a Sources section at bottom of teardown with links to episodes and newsletters. Inline footnote citations are a more elegant version — backlog for later.
-- [ ] User timezone for rate limit messages — detect browser timezone, show "resets at midnight EST" instead of generic midnight
-- [ ] Consider: Lead with strategic tension — add prompt instruction to identify the single highest-stakes unresolved paradox before writing any section, use every section as evidence for or against resolving it
+- [ ] Source bibliography — collect LennyData source URLs, render Sources section at bottom of teardown with links to episodes and newsletters
+
+### Feedback & Product Loops
+- [ ] Rating and feedback mechanism — thumbs up/down per teardown with optional comment. Stretch: per-section rating so you know which parts land. Needed before broader release to have a signal to act on.
+- [ ] Adversarial self-refinement loop — experiment first by running silent self-critique before output, no UI change. If quality improves, consider "Push Deeper" button as user-triggered second pass. Natural monetization gate. May slip to Phase 3 depending on complexity.
+
+### UI & Polish
+- [ ] Cursor haze effect — radial amber light follows cursor across hero, references Profound (tryprofound.com/careers). Film grain texture overlay. Proximity brightness falloff toward center. High-impression touch — people feel it immediately. Transforms current fire glow into a live scrying pool.
+- [ ] Download dark aesthetic — currently renders white/gray. Should preserve full Scry dark style.
+- [ ] Add loading button state on signup/login
+- [ ] Chat panel width tuning — 340px is starting point, revisit after real usage data
+
+### Infrastructure
+- [ ] Code quality pass — separate agent reviews Edge Functions, prompt logic, RLS policies, rate limiting edge cases
+- [ ] Google OAuth — nice-to-have, non-blocking
+- [ ] Custom domain — currently the-shard-five.vercel.app
+- [ ] Monetization model decision — freemium (5 teardowns/day free, unlimited paid) vs subscription. Decision needed before LinkedIn launch.
+- [ ] Show what they're missing on limit hit — sales moment for paid tier upgrade
+- [ ] Analytics and usage tracking
 
 ---
 
-## Phase 3 — Brainstorming for later
+## Phase 3 — Later
+*Goal: differentiation, delight, and scale. Nothing here is needed for feedback or LinkedIn launch.*
 
-### Intelligence
-- [ ] Custom RAG pipeline — contingency only, build if LennyData MCP becomes insufficient
-- [ ] Knowledge Graph layer (nodes: experts, frameworks, companies; edges: relationships)
-- [ ] Guest persona lenses: Growth / Design / Strategy / Investor
-- [ ] Configurable teardown depth (user-selectable)
-- [ ] Conflicting perspectives surfacing — show tension between experts explicitly
-- [ ] Master Rubric visibility — consider whether to expose to users
-- [ ] Smart scope narrowing — post-generation, surface 2-3 drill-down angles using Exa results in parallel
-- [ ] Saliency detection — feature vs company submission adjusts teardown depth
-
-### Product
-- [ ] Shareable teardowns — public read-only link (also in pre-launch)
-- [ ] Rating/feedback mechanism on teardown quality
-- [ ] User profiles to personalize teardowns over time
-- [ ] Weekly newsletter pipeline (cron job + Resend or Loops)
-- [ ] Newsletter as separate product vs integrated — decision needed
-- [ ] Adversarial self-refinement loop ("Push Deeper" button)
-      User-triggered second pass — teardown gets internally critiqued and regenerated.
-      Natural monetization gate: free users get one pass, paid users unlock refinement.
-      Options:
-      - Option A: Silent — always runs before output. Adds 20-40s, no user control.
-      - Option B: Show process — draft, critique, final. Educational but heavy UX.
-      - Option C (preferred): User-triggered "Push Deeper" button post-generation.
-      Requires: new Edge Function mode, button in TeardownDisplay.
-
-### UI & Design
+### Design & Experience
+- [ ] Logo mark / scrying pool animation — dark crystalline vessel with living interior (fog, embers). Continuously animated, intensifies on cursor proximity. Needs real designer.
+- [ ] Wordmark animation — slow cycle, hero only
+- [ ] Thick coal line (3px) variant — hold until tested on large screen
 - [ ] Visuals in teardowns — positioning map, growth loop diagram, feature matrix (Recharts or D3)
 - [ ] Audio/listening feature — TTS via ElevenLabs or OpenAI TTS API
-- [ ] Wordmark animation — slow cycle between off-white, gold, near-translucent (hero only)
-- [ ] Proper logo mark — glass shard SVG
 - [ ] Micro-animations — spark effect on submit, staggered section fade-in
 
-### Monetization & Scale
-- [ ] Monetization model decision — freemium (5 teardowns/day free, 10 paid) vs subscription
-- [ ] Analytics and usage tracking
-- [ ] Custom domain (currently the-shard-five.vercel.app)
-- [ ] Show what they're missing on limit hit — sales moment for paid tier upgrade
+### Intelligence
+- [ ] Guest persona lenses — Growth / Design / Strategy / Investor. Each lens filters and reframes the teardown through a different expert worldview. Requires UI decision (select before or after generation?) and significant prompt engineering.
+- [ ] Configurable teardown depth — user-selectable
+- [ ] Master Rubric visibility — consider whether to expose to users
+- [ ] Smart scope narrowing — post-generation, surface 2-3 drill-down angles using Exa results in parallel
+- [ ] Custom RAG pipeline — contingency only, build if LennyData MCP becomes insufficient
+- [ ] Knowledge Graph layer — nodes: experts, frameworks, companies; edges: relationships
+
+### Product
+- [ ] User profiles — personalize teardowns based on role or interests over time
+- [ ] Weekly newsletter pipeline — cron job + Resend or Loops. One AI-generated teardown per week based on trending product news. Decision needed: separate product or integrated?
+- [ ] Rating per section — granular feedback on which teardown sections land vs miss
 
 ---
 
-## Open Questions (Decisions Needed)
+## Open Questions
 
-- Should teardowns be shareable via public read-only link?
-- How to handle products not covered in Lenny's corpus?
+- How to handle products not covered in Lenny's corpus? Reason by analogy, or surface a warning?
 - Should the Master Rubric be visible to users?
 - Newsletter: separate product or integrated?
 - Monetization model: freemium / subscription / one-time?
 - User profiles: personalize teardowns based on role or interests?
+- New domain for Scry — what's available?
 
 ---
 
-## Completed
+## What We Built
 
-- [x] Lovable prototype — full UI, both modes, history sidebar, chat panel, download button
-- [x] Cursor dev environment set up — project running locally
-- [x] Supabase project created — auth, Postgres DB, pgvector enabled
-- [x] Real Supabase auth — login and signup functional with real users
-- [x] Auth-aware session state — sidebar and routes hidden for logged-out users
-- [x] Supabase DB persistence — teardowns and history saving to real database
-- [x] Claude API connection — Edge Function deployed, real teardowns generating
-- [x] Prompt engineering guardrails — no em dashes, no sycophancy, no AI filler, factual tone
-- [x] Wire Critique mode to Edge Function
-- [x] Wire real chat Q&A to Claude API
-- [x] LennyData MCP connected — SSE parsing working, pipe-delimited queries
-- [x] Exa web search integrated — teardowns grounded in current facts
-- [x] Two-step query pipeline — Haiku generates queries, Sonnet generates teardown
-- [x] Pipe-delimited query format — corpus jumped from 10k to 36k+ characters
-- [x] Critique query generation — extracts product name from teardown text automatically
-- [x] PDF extraction in Critique upload — pdfjs-dist@4.4.168 working in browser
-- [x] Input validation in Critique mode — frontend + Edge Function guards against gibberish
-- [x] Product name required in Critique mode — improves Query 1 retrieval
-- [x] Critique input label updated — "What are you analyzing?" with flexible examples
-- [x] Vercel deployment — live at the-shard-five.vercel.app
-- [x] Dev branch setup — main deploys to Vercel, dev is working branch
-- [x] Product URL — "Visit product →" amber-gold link under product name in generate mode
-- [x] Chat loading indicator — animated dots while waiting for response
-- [x] Password reset flow — forgot password link, Supabase email reset, /reset-password page
-- [x] Signup inline message — replaced alert() with inline success message
-- [x] Collapsible sections — chevron toggle on each section
-- [x] Tighten output length — 3-5 sentences per section prompt constraint
-- [x] Loading messages — 5 thematic messages, 8s each, stops on last
-- [x] Usage counter — shows X of 5 today in header (RLS fix pending)
-- [x] Rate limiting — 5 teardowns/day and 10 chat messages/teardown in Edge Function
-- [x] vercel.json — SPA routing config so React Router paths work on Vercel
-- [x] JSON parse resilience — salvage attempt if Claude response has syntax error
-- [x] Git email fix — resolved Vercel deployment blocking due to local machine email
-- [x] Product URL — prefer URLs on product's own domain over third-party sites
-- [x] Rate limiting — 5 teardowns/day, 10 chat messages/teardown, resets midnight UTC
+### v0 — Lovable Prototype
+Full UI shell built in Lovable: both Generate and Critique modes, history sidebar, chat panel, download button, mock AI responses. Established the visual direction — dark editorial aesthetic, amber-gold accent, Cormorant Garamond headings.
+
+### Alpha — Full Product Build
+Wired everything to real infrastructure. Supabase auth (login, signup, password reset), Postgres DB persistence, Row Level Security, real Claude API via Supabase Edge Functions, LennyData MCP for corpus retrieval, Exa for live web search, two-step query pipeline (Haiku generates queries, Sonnet generates teardown). Prompt engineering guardrails locked in. Significant UI overhaul: renamed to Scry, full typography pass (Inter only), landing page hero with fire glow and coal line divider, three-column layout (history / teardown / chat), chat streaming, mobile tab fallback, shareable teardowns.
