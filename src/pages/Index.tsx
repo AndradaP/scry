@@ -5,8 +5,8 @@ import Footer from "@/components/Footer";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-const FIRE_GRADIENT_OUTER = "radial-gradient(ellipse at 50% 100%, rgba(212,168,67,0.12) 0%, rgba(196,88,26,0.05) 30%, transparent 55%)";
-const FIRE_GRADIENT_INNER = "radial-gradient(ellipse at 50% 100%, rgba(255,210,100,0.08) 0%, rgba(212,168,67,0.03) 25%, transparent 50%)";
+const FIRE_GRADIENT_OUTER = "radial-gradient(ellipse at 50% 100%, rgba(212,168,67,0.22) 0%, rgba(196,88,26,0.10) 35%, rgba(196,88,26,0.03) 62%, transparent 80%)";
+const FIRE_GRADIENT_INNER = "radial-gradient(ellipse at 50% 100%, rgba(255,210,100,0.16) 0%, rgba(212,168,67,0.06) 30%, transparent 58%)";
 const COAL_GRADIENT = "linear-gradient(90deg, transparent 0%, rgba(196,88,26,0.4) 20%, rgba(212,168,67,0.9) 40%, rgba(255,210,100,1) 50%, rgba(212,168,67,0.9) 60%, rgba(196,88,26,0.4) 80%, transparent 100%)";
 
 const Index = () => {
@@ -66,10 +66,9 @@ const Index = () => {
                 bottom: 0,
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: "700px",
-                height: "420px",
+                width: "800px",
+                height: "700px",
                 background: FIRE_GRADIENT_OUTER,
-                clipPath: "polygon(50% 0%, 96% 100%, 4% 100%)",
                 zIndex: 0,
                 pointerEvents: "none",
               }}
@@ -81,10 +80,9 @@ const Index = () => {
                 bottom: 0,
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: "320px",
-                height: "260px",
+                width: "450px",
+                height: "500px",
                 background: FIRE_GRADIENT_INNER,
-                clipPath: "polygon(50% 0%, 88% 100%, 12% 100%)",
                 zIndex: 0,
                 pointerEvents: "none",
               }}
