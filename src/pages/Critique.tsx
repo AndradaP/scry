@@ -261,6 +261,7 @@ const Critique = () => {
             teardownId: entryId,
             teardownContext,
             chatMessages: newMessages.map(m => ({ role: m.role, content: m.content })),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
         }
       );

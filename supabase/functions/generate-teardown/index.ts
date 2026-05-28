@@ -12,6 +12,16 @@ const supabase = createClient(
 
 const DEV_EMAIL = "ioana.andrada.api@gmail.com";
 
+function getTimezoneAbbr(timezone: string | undefined): string {
+  if (!timezone) return "UTC";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "short" }).formatToParts(new Date());
+    return parts.find(p => p.type === "timeZoneName")?.value ?? "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 function getLocalDate(timezone: string): string {
   try {
     return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
@@ -249,6 +259,7 @@ Deno.serve(async (req) => {
 
     const { userId, userEmail } = getUserFromJwt(req.headers.get("Authorization"));
     const isDevUser = userEmail === DEV_EMAIL;
+    const tz = getTimezoneAbbr(typeof timezone === "string" ? timezone : undefined);
     const today = getLocalDate(typeof timezone === "string" ? timezone : "UTC");
 
     // ── Chat mode ────────────────────────────────────────────────────────────
@@ -264,7 +275,7 @@ Deno.serve(async (req) => {
         if ((teardownRow?.chat_message_count ?? 0) >= 10) {
           return new Response(JSON.stringify({
             error: "chat_limit_exceeded",
-            message: "You've reached the 10 message limit for this teardown. Your limit resets at midnight.",
+            message: `You've reached the 10 message limit for this teardown. Your limit resets at midnight ${tz}.`,
           }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
@@ -359,7 +370,7 @@ ${teardownContext}`;
       if ((usageRow?.teardown_count ?? 0) >= 5) {
         return new Response(JSON.stringify({
           error: "daily_limit_exceeded",
-          message: "You've used all 5 of your teardowns today. Your limit resets at midnight.",
+          message: `You've used all 5 of your teardowns today. Your limit resets at midnight ${tz}.`,
         }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
