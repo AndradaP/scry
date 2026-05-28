@@ -41,7 +41,7 @@ const AppLayout = ({ children, rightPanel }: AppLayoutProps) => {
             <HistorySidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
           )}
           <div style={{ flex: 1, display: "flex", overflow: "hidden", minWidth: 0 }}>
-            <main style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+            <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column" }}>
               {children}
             </main>
             {rightPanel}

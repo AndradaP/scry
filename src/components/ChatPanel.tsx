@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { ArrowUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
@@ -108,6 +109,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
             lineHeight: 1.75,
             color: "#F0EBE0",
             width: "100%",
+            overflowWrap: "break-word",
           }}
         >
           <ReactMarkdown
@@ -175,7 +177,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
   ) : null;
 
   const formContent = (
-    <form onSubmit={handleSubmit} className="flex items-center gap-4">
+    <form onSubmit={handleSubmit} className="flex items-center gap-3" style={{ minWidth: 0 }}>
       <input
         ref={inputRef}
         type="text"
@@ -188,11 +190,14 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           fontSize: "14px",
           color: "#F0EBE0",
           borderRadius: 0,
+          minWidth: 0,
         }}
       />
+      {/* Desktop: text send button */}
       <button
         type="submit"
         disabled={!input.trim() || isLoading}
+        className="hidden lg:block"
         style={{
           fontFamily: "'Inter', system-ui, sans-serif",
           fontSize: "13px",
@@ -205,9 +210,34 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           opacity: !input.trim() || isLoading ? 0.3 : 1,
           transition: "opacity 0.15s",
           borderRadius: 0,
+          flexShrink: 0,
         }}
       >
         Send
+      </button>
+      {/* Mobile: circular arrow button */}
+      <button
+        type="submit"
+        disabled={!input.trim() || isLoading}
+        className="lg:hidden flex items-center justify-center flex-shrink-0"
+        style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "50%",
+          background: input.trim() && !isLoading ? "#D4A843" : "#2E2C28",
+          border: `1px solid ${input.trim() && !isLoading ? "#D4A843" : "#3E3C38"}`,
+          cursor: input.trim() && !isLoading ? "pointer" : "default",
+          transition: "background 0.15s, border-color 0.15s",
+          padding: 0,
+        }}
+      >
+        <ArrowUp
+          style={{
+            width: "16px",
+            height: "16px",
+            color: input.trim() && !isLoading ? "#1A1815" : "#7A7670",
+          }}
+        />
       </button>
     </form>
   );
@@ -215,7 +245,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
   if (variant === "panel") {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-        <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
+        <div className="hidden lg:block" style={{ padding: "16px 20px 0", flexShrink: 0 }}>
           <p className="text-xs font-mono mb-4" style={{ color: "#7A7670" }}>
             Ask a follow-up <span className="opacity-50 ml-2">press /</span>
           </p>
@@ -228,7 +258,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           {messageList}
           {messages.length > 0 && thinkingIndicator}
         </div>
-        <div style={{ padding: "12px 20px", borderTop: "1px solid hsl(var(--border))", flexShrink: 0 }}>
+        <div className="lg:border-t border-border" style={{ padding: "12px 20px", flexShrink: 0 }}>
           {formContent}
         </div>
       </div>
@@ -237,7 +267,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
 
   return (
     <div className="mt-12 pt-8 border-t rule-amber">
-      <p className="text-xs font-mono mb-6" style={{ color: "#7A7670" }}>
+      <p className="hidden lg:block text-xs font-mono mb-6" style={{ color: "#7A7670" }}>
         Ask a follow-up <span className="opacity-50 ml-2">press /</span>
       </p>
       {messages.length > 0 && (

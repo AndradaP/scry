@@ -120,20 +120,15 @@ const Index = () => {
                   fontSize: "18px",
                   color: "#A09A92",
                   marginBottom: "56px",
-                  whiteSpace: "nowrap",
+                  textAlign: "center",
                 }}
               >
                 Product teardowns powered by the best product minds.
               </p>
 
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "24px",
-                  maxWidth: "680px",
-                  width: "100%",
-                }}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full"
+                style={{ maxWidth: "680px" }}
               >
                 <button
                   onClick={() => go("/generate")}
@@ -152,10 +147,10 @@ const Index = () => {
                   }}
                 >
                   <h2
+                    className="text-xl lg:text-2xl"
                     style={{
                       fontFamily: "'Cormorant Garamond', Georgia, serif",
                       fontWeight: 600,
-                      fontSize: "24px",
                       color: "#D4A843",
                       marginBottom: "24px",
                     }}
@@ -184,10 +179,10 @@ const Index = () => {
                   }}
                 >
                   <h2
+                    className="text-xl lg:text-2xl"
                     style={{
                       fontFamily: "'Cormorant Garamond', Georgia, serif",
                       fontWeight: 600,
-                      fontSize: "24px",
                       color: "#F0EBE0",
                       marginBottom: "24px",
                     }}

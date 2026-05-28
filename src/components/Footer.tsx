@@ -8,7 +8,7 @@ const Footer = () => (
         fontFamily: "'Inter', system-ui, sans-serif",
         fontSize: "13px",
         color: "#7A7670",
-        textDecoration: "none",
+        textDecoration: "underline",
       }}
     >
       Powered by Lenny's Podcast &amp; Newsletter

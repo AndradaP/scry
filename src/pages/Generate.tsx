@@ -335,8 +335,12 @@ const Generate = () => {
             </div>
 
             {/* Mobile chat tab — only shown on mobile when chat tab is active */}
-            <div className={`lg:hidden ${mobileTab === "chat" ? "block" : "hidden"}`}>
+            <div
+              className={`lg:hidden ${mobileTab === "chat" ? "block" : "hidden"}`}
+              style={{ height: "calc(100dvh - 160px)" }}
+            >
               <ChatPanel
+                variant="panel"
                 messages={chatMessages}
                 onSend={handleChatSend}
                 isLoading={chatLoading}

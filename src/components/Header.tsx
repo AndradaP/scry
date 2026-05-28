@@ -51,7 +51,7 @@ const Header = ({ onToggleSidebar }: HeaderProps) => {
         <nav className="flex items-center gap-6">
           {userEmail ? (
             <div className="flex items-center gap-4">
-              <span className="text-sm font-body text-muted-foreground">{userEmail}</span>
+              <span className="hidden lg:inline text-sm font-body text-muted-foreground">{userEmail}</span>
               <button
                 onClick={handleSignOut}
                 className="text-sm font-body text-muted-foreground hover:text-foreground transition-colors"
