@@ -61,7 +61,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming }: ChatPanelProps)
       </p>
 
       {messages.length > 0 && (
-        <div ref={scrollRef} className="max-h-[480px] overflow-y-auto mb-8 space-y-6">
+        <div ref={scrollRef} className="max-h-[480px] overflow-y-auto mb-8 space-y-6" style={{ padding: "0 1.5rem" }}>
           {messages.map((msg, index) => (
             <div
               key={msg.id}
