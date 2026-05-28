@@ -107,9 +107,9 @@ const Index = () => {
                 style={{
                   fontFamily: "'Cormorant Garamond', Georgia, serif",
                   fontWeight: 600,
-                  fontSize: "52px",
+                  fontSize: "72px",
                   color: "#F0EBE0",
-                  marginBottom: "12px",
+                  marginBottom: "16px",
                   lineHeight: 1.1,
                 }}
               >
@@ -119,9 +119,11 @@ const Index = () => {
               <p
                 style={{
                   fontFamily: "'Inter', system-ui, sans-serif",
-                  fontSize: "14px",
+                  fontSize: "18px",
                   color: "#A09A92",
-                  marginBottom: "48px",
+                  marginBottom: "56px",
+                  maxWidth: "420px",
+                  textAlign: "center",
                 }}
               >
                 Product teardowns powered by the best product minds.
@@ -131,8 +133,8 @@ const Index = () => {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  maxWidth: "560px",
+                  gap: "24px",
+                  maxWidth: "680px",
                   width: "100%",
                 }}
               >
@@ -145,7 +147,7 @@ const Index = () => {
                   style={{
                     border: `1px solid ${hoverCard === "generate" ? "rgba(212,168,67,0.75)" : "rgba(212,168,67,0.45)"}`,
                     background: hoverCard === "generate" ? "rgba(212,168,67,0.04)" : "transparent",
-                    padding: "24px",
+                    padding: "32px",
                     textAlign: "left",
                     cursor: "pointer",
                     transition: "border-color 0.15s, background 0.15s",
@@ -156,14 +158,14 @@ const Index = () => {
                     style={{
                       fontFamily: "'Cormorant Garamond', Georgia, serif",
                       fontWeight: 600,
-                      fontSize: "18px",
+                      fontSize: "24px",
                       color: "#D4A843",
-                      marginBottom: "8px",
+                      marginBottom: "24px",
                     }}
                   >
                     Generate a Teardown
                   </h2>
-                  <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
+                  <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "14px", color: "#A09A92", margin: 0 }}>
                     Pick a product. Get a full-stack analysis.
                   </p>
                 </button>
@@ -177,7 +179,7 @@ const Index = () => {
                   style={{
                     border: `1px solid ${hoverCard === "critique" ? "rgba(240,235,224,0.3)" : "rgba(240,235,224,0.15)"}`,
                     background: hoverCard === "critique" ? "rgba(240,235,224,0.03)" : "transparent",
-                    padding: "24px",
+                    padding: "32px",
                     textAlign: "left",
                     cursor: "pointer",
                     transition: "border-color 0.15s, background 0.15s",
@@ -188,14 +190,14 @@ const Index = () => {
                     style={{
                       fontFamily: "'Cormorant Garamond', Georgia, serif",
                       fontWeight: 600,
-                      fontSize: "18px",
+                      fontSize: "24px",
                       color: "#F0EBE0",
-                      marginBottom: "8px",
+                      marginBottom: "24px",
                     }}
                   >
                     Critique My Teardown
                   </h2>
-                  <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#A09A92", margin: 0 }}>
+                  <p style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: "14px", color: "#A09A92", margin: 0 }}>
                     Submit your analysis. Get expert feedback.
                   </p>
                 </button>
