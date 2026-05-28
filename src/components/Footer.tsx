@@ -1,5 +1,5 @@
 const Footer = () => (
-  <footer style={{ padding: "12px 24px", textAlign: "right", position: "relative", zIndex: 3 }}>
+  <footer style={{ padding: "12px 24px", textAlign: "right", position: "relative", zIndex: 3, width: "100%" }}>
     <a
       href="https://www.lennysnewsletter.com"
       target="_blank"
