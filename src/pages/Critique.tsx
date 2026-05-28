@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import SectionDisplay from "@/components/SectionDisplay";
 import ChatPanel from "@/components/ChatPanel";
+import ChatDrawer from "@/components/ChatDrawer";
 import LoadingState from "@/components/LoadingState";
 import DownloadButton from "@/components/DownloadButton";
 import { ArrowRight, Upload } from "lucide-react";
@@ -71,6 +72,7 @@ const Critique = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatStreaming, setChatStreaming] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"teardown" | "chat">("teardown");
   const [entryId, setEntryId] = useState<string>("");
   const [usageCount, setUsageCount] = useState<number | null>(null);
 
@@ -348,8 +350,17 @@ const Critique = () => {
       }))
     : [];
 
+  const chatDrawer = critique && !isLoading ? (
+    <ChatDrawer
+      messages={chatMessages}
+      onSend={handleChatSend}
+      isLoading={chatLoading}
+      isStreaming={chatStreaming}
+    />
+  ) : undefined;
+
   return (
-    <AppLayout>
+    <AppLayout rightPanel={chatDrawer}>
       <div className="w-full max-w-[860px] mx-auto px-6 py-12">
         {!critique && !isLoading && (
           <div className="py-8">
@@ -451,20 +462,56 @@ const Critique = () => {
 
         {critique && !isLoading && (
           <div>
-            <div className="flex items-start justify-between mb-2">
-              <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
+            {/* Mobile tab bar */}
+            <div className="lg:hidden flex gap-6 mb-8 border-b border-border">
+              <button
+                onClick={() => setMobileTab("teardown")}
+                className={`pb-3 text-sm font-body transition-colors border-b-2 -mb-px ${
+                  mobileTab === "teardown"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
                 Critique
-              </h1>
-              <DownloadButton productName={critiqueTitle} sections={sections} />
+              </button>
+              <button
+                onClick={() => setMobileTab("chat")}
+                className={`pb-3 text-sm font-body transition-colors border-b-2 -mb-px ${
+                  mobileTab === "chat"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Chat
+              </button>
             </div>
-            {productName && (
-              <p className="font-mono text-sm text-muted-foreground mb-10">
-                {productName}
-              </p>
-            )}
-            {!productName && <div className="mb-10" />}
-            <SectionDisplay sections={sections} />
-            <ChatPanel messages={chatMessages} onSend={handleChatSend} isLoading={chatLoading} isStreaming={chatStreaming} />
+
+            {/* Critique content — always visible on desktop, hidden on mobile when chat tab is active */}
+            <div className={`${mobileTab === "chat" ? "hidden" : "block"} lg:block`}>
+              <div className="flex items-start justify-between mb-2">
+                <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
+                  Critique
+                </h1>
+                <DownloadButton productName={critiqueTitle} sections={sections} />
+              </div>
+              {productName && (
+                <p className="font-mono text-sm text-muted-foreground mb-10">
+                  {productName}
+                </p>
+              )}
+              {!productName && <div className="mb-10" />}
+              <SectionDisplay sections={sections} />
+            </div>
+
+            {/* Mobile chat tab — only shown on mobile when chat tab is active */}
+            <div className={`lg:hidden ${mobileTab === "chat" ? "block" : "hidden"}`}>
+              <ChatPanel
+                messages={chatMessages}
+                onSend={handleChatSend}
+                isLoading={chatLoading}
+                isStreaming={chatStreaming}
+              />
+            </div>
           </div>
         )}
       </div>

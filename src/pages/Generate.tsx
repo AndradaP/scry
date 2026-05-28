@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import AppLayout from "@/components/AppLayout";
 import SectionDisplay from "@/components/SectionDisplay";
 import ChatPanel from "@/components/ChatPanel";
+import ChatDrawer from "@/components/ChatDrawer";
 import LoadingState from "@/components/LoadingState";
 import DownloadButton from "@/components/DownloadButton";
 import { ArrowRight } from "lucide-react";
@@ -42,6 +43,7 @@ const Generate = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatStreaming, setChatStreaming] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"teardown" | "chat">("teardown");
   const [entryId, setEntryId] = useState<string>("");
   const [usageCount, setUsageCount] = useState<number | null>(null);
 
@@ -236,8 +238,17 @@ const Generate = () => {
     ? GENERATE_SECTIONS.map((s) => ({ key: s.key, label: s.label, content: teardown[s.key] || "" }))
     : [];
 
+  const chatDrawer = teardown && !isLoading ? (
+    <ChatDrawer
+      messages={chatMessages}
+      onSend={handleChatSend}
+      isLoading={chatLoading}
+      isStreaming={chatStreaming}
+    />
+  ) : undefined;
+
   return (
-    <AppLayout>
+    <AppLayout rightPanel={chatDrawer}>
       <div className="w-full max-w-[860px] mx-auto px-6 py-12">
         {!teardown && !isLoading && (
           <div className="py-16">
@@ -274,27 +285,63 @@ const Generate = () => {
 
         {teardown && !isLoading && (
           <div>
-            <div className="flex items-start justify-between mb-10">
-              <div>
-                <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
-                  {productName}
-                </h1>
-                {productUrl && (
-                  <a
-                    href={productUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-xs mt-1 inline-block hover:opacity-80 transition-opacity"
-                    style={{ color: "hsl(var(--primary))" }}
-                  >
-                    Visit product →
-                  </a>
-                )}
-              </div>
-              <DownloadButton productName={productName} sections={sections} />
+            {/* Mobile tab bar */}
+            <div className="lg:hidden flex gap-6 mb-8 border-b border-border">
+              <button
+                onClick={() => setMobileTab("teardown")}
+                className={`pb-3 text-sm font-body transition-colors border-b-2 -mb-px ${
+                  mobileTab === "teardown"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Teardown
+              </button>
+              <button
+                onClick={() => setMobileTab("chat")}
+                className={`pb-3 text-sm font-body transition-colors border-b-2 -mb-px ${
+                  mobileTab === "chat"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Chat
+              </button>
             </div>
-            <SectionDisplay sections={sections} />
-            <ChatPanel messages={chatMessages} onSend={handleChatSend} isLoading={chatLoading} isStreaming={chatStreaming} />
+
+            {/* Teardown content — always visible on desktop, hidden on mobile when chat tab is active */}
+            <div className={`${mobileTab === "chat" ? "hidden" : "block"} lg:block`}>
+              <div className="flex items-start justify-between mb-10">
+                <div>
+                  <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
+                    {productName}
+                  </h1>
+                  {productUrl && (
+                    <a
+                      href={productUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs mt-1 inline-block hover:opacity-80 transition-opacity"
+                      style={{ color: "hsl(var(--primary))" }}
+                    >
+                      Visit product →
+                    </a>
+                  )}
+                </div>
+                <DownloadButton productName={productName} sections={sections} />
+              </div>
+              <SectionDisplay sections={sections} />
+            </div>
+
+            {/* Mobile chat tab — only shown on mobile when chat tab is active */}
+            <div className={`lg:hidden ${mobileTab === "chat" ? "block" : "hidden"}`}>
+              <ChatPanel
+                messages={chatMessages}
+                onSend={handleChatSend}
+                isLoading={chatLoading}
+                isStreaming={chatStreaming}
+              />
+            </div>
           </div>
         )}
       </div>
