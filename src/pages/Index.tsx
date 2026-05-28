@@ -64,7 +64,7 @@ const Index = () => {
           }}
         />
 
-        {/* Content — flex-1 pushes footer to bottom */}
+        {/* Content — flex-1 fills hero, centers everything */}
         <div
           className="flex-1 flex flex-col items-center justify-center"
           style={{ position: "relative", zIndex: 2, padding: "0 24px" }}
@@ -168,24 +168,21 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Footer — flex item, pushed to bottom by content above */}
-        <Footer />
-
-        {/* Coal line — absolute, sits on top of footer at very bottom edge */}
+        {/* Coal line — last child of hero, in normal flow */}
         <div
           aria-hidden="true"
           style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
             height: "1px",
+            flexShrink: 0,
             background: COAL_GRADIENT,
+            position: "relative",
             zIndex: 4,
-            pointerEvents: "none",
           }}
         />
       </div>
+
+      {/* Footer — sibling of hero, below coal line */}
+      <Footer />
     </AppLayout>
   );
 };
