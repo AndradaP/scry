@@ -5,8 +5,8 @@ import Footer from "@/components/Footer";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-const FIRE_GRADIENT_OUTER = "radial-gradient(ellipse at 50% 100%, rgba(212,168,67,0.22) 0%, rgba(196,88,26,0.10) 35%, rgba(196,88,26,0.03) 62%, transparent 80%)";
-const FIRE_GRADIENT_INNER = "radial-gradient(ellipse at 50% 100%, rgba(255,210,100,0.16) 0%, rgba(212,168,67,0.06) 30%, transparent 58%)";
+const FIRE_GRADIENT_OUTER = "radial-gradient(ellipse at 50% 55%, rgba(212,168,67,0.22) 0%, rgba(196,88,26,0.10) 35%, rgba(196,88,26,0.03) 62%, transparent 80%)";
+const FIRE_GRADIENT_INNER = "radial-gradient(ellipse at 50% 37%, rgba(255,210,100,0.16) 0%, rgba(212,168,67,0.06) 30%, transparent 58%)";
 const COAL_GRADIENT = "linear-gradient(90deg, transparent 0%, rgba(196,88,26,0.4) 20%, rgba(212,168,67,0.9) 40%, rgba(255,210,100,1) 50%, rgba(212,168,67,0.9) 60%, rgba(196,88,26,0.4) 80%, transparent 100%)";
 
 const Index = () => {
@@ -120,8 +120,7 @@ const Index = () => {
                   fontSize: "18px",
                   color: "#A09A92",
                   marginBottom: "56px",
-                  maxWidth: "420px",
-                  textAlign: "center",
+                  whiteSpace: "nowrap",
                 }}
               >
                 Product teardowns powered by the best product minds.
