@@ -6,6 +6,7 @@ import ChatPanel from "@/components/ChatPanel";
 import ChatDrawer from "@/components/ChatDrawer";
 import LoadingState from "@/components/LoadingState";
 import DownloadButton from "@/components/DownloadButton";
+import ShareButton from "@/components/ShareButton";
 import { ArrowRight, Upload } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
 import { supabase } from "@/lib/supabase";
@@ -493,7 +494,10 @@ const Critique = () => {
                 <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
                   Critique
                 </h1>
-                <DownloadButton productName={critiqueTitle} sections={sections} />
+                <div className="flex items-center gap-2">
+                  <ShareButton teardownId={entryId} />
+                  <DownloadButton productName={critiqueTitle} sections={sections} />
+                </div>
               </div>
               {productName && (
                 <p className="font-mono text-sm text-muted-foreground mb-10">

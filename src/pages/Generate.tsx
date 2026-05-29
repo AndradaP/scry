@@ -6,6 +6,7 @@ import ChatPanel from "@/components/ChatPanel";
 import ChatDrawer from "@/components/ChatDrawer";
 import LoadingState from "@/components/LoadingState";
 import DownloadButton from "@/components/DownloadButton";
+import ShareButton from "@/components/ShareButton";
 import { ArrowRight } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
 import { supabase } from "@/lib/supabase";
@@ -329,7 +330,10 @@ const Generate = () => {
                     </a>
                   )}
                 </div>
-                <DownloadButton productName={productName} sections={sections} />
+                <div className="flex items-center gap-2">
+                  <ShareButton teardownId={entryId} />
+                  <DownloadButton productName={productName} sections={sections} />
+                </div>
               </div>
               <SectionDisplay sections={sections} />
             </div>

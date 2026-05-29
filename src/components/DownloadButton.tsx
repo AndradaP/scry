@@ -57,7 +57,7 @@ const DownloadButton = ({ productName, sections }: DownloadButtonProps) => {
     <div ref={ref} className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-body text-muted-foreground border border-border hover:border-primary hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-body text-muted-foreground border border-border hover:border-foreground hover:text-foreground transition-colors"
       >
         <Download className="w-3.5 h-3.5" />
         Download
