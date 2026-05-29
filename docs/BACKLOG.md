@@ -3,10 +3,15 @@
 
 ---
 
+### v0 — Lovable Prototype
+*Goal: write a comprehensive PRD and produce a prototype in Lovable.*
+Full UI shell built in Lovable: both Generate and Critique modes, history sidebar, chat panel, download button, mock AI responses. Established the visual direction — dark editorial aesthetic, amber-gold accent, Cormorant Garamond headings.
+
 ## Alpha — Ship for First Feedback
 *Goal: get the core product in front of working and aspiring PMs for qualitative feedback. Teardown quality, UX clarity, and shareability are the only things that matter at this stage.*
 
-✅ **Build complete.** Full history in Completed section below.
+Alpha Build
+Wired everything to real infrastructure. Supabase auth (login, signup, password reset), Postgres DB persistence, Row Level Security, real Claude API via Supabase Edge Functions, LennyData MCP for corpus retrieval, Exa for live web search, two-step query pipeline (Haiku generates queries, Sonnet generates teardown). Prompt engineering guardrails locked in. Significant UI overhaul: renamed to Scry, full typography pass (Inter only), landing page hero with fire glow and coal line divider, three-column layout (history / teardown / chat), chat streaming, mobile tab fallback, shareable teardowns.
 
 **Next: qualitative testing with 3-5 PMs** — mix of working and aspiring PMs. Share via link, observe cold. Key questions: does the teardown feel credible and sharp? Is Generate vs Critique mode distinction clear? Does the share flow work end to end? Collect feedback before prioritizing Beta work.
 
