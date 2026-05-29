@@ -11,18 +11,19 @@ const ShareButton = ({ teardownId }: ShareButtonProps) => {
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
-    if (!isPublic) {
-      await supabase
-        .from("teardowns")
-        .update({ is_public: true })
-        .eq("id", teardownId);
-      setIsPublic(true);
-    }
-
     const url = `https://the-shard-five.vercel.app/teardown/${teardownId}`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+
+    if (!isPublic) {
+      setIsPublic(true);
+      supabase
+        .from("teardowns")
+        .update({ is_public: true })
+        .eq("id", teardownId)
+        .then();
+    }
   };
 
   return (
