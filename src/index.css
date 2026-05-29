@@ -70,6 +70,13 @@
   }
 }
 
+/* Prevent iOS auto-zoom on input focus — triggered when font-size < 16px */
+@media (max-width: 1023px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
 /* Chat input placeholder */
 .chat-input::placeholder {
   color: #7A7670;
