@@ -77,6 +77,13 @@
   }
 }
 
+/* Safe-area bottom padding for docked chat input on iPhone */
+@media (max-width: 1023px) {
+  .chat-input-bar {
+    padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
 /* Chat input placeholder */
 .chat-input::placeholder {
   color: #7A7670;

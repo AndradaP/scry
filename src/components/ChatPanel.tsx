@@ -215,15 +215,15 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
       >
         Send
       </button>
-      {/* Mobile: circular arrow button */}
+      {/* Mobile: pill arrow button */}
       <button
         type="submit"
         disabled={!input.trim() || isLoading}
         className="lg:hidden flex items-center justify-center flex-shrink-0"
         style={{
-          width: "32px",
-          height: "32px",
-          borderRadius: "50%",
+          width: "52px",
+          height: "36px",
+          borderRadius: "18px",
           background: input.trim() && !isLoading ? "#D4A843" : "#2E2C28",
           border: `1px solid ${input.trim() && !isLoading ? "#D4A843" : "#3E3C38"}`,
           cursor: input.trim() && !isLoading ? "pointer" : "default",
@@ -244,7 +244,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
 
   if (variant === "panel") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div className="hidden lg:block" style={{ padding: "16px 20px 0", flexShrink: 0 }}>
           <p className="text-xs font-mono mb-4" style={{ color: "#7A7670" }}>
             Ask a follow-up <span className="opacity-50 ml-2">press /</span>
@@ -258,7 +258,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           {messageList}
           {messages.length > 0 && thinkingIndicator}
         </div>
-        <div className="lg:border-t border-border" style={{ padding: "12px 20px", flexShrink: 0 }}>
+        <div className="chat-input-bar lg:border-t border-border" style={{ padding: "12px 20px", flexShrink: 0 }}>
           {formContent}
         </div>
       </div>
