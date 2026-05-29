@@ -31,7 +31,10 @@ const Index = () => {
     <div
       style={{
         position: "fixed",
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "100dvh",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
@@ -102,10 +105,10 @@ const Index = () => {
               }}
             >
               <h1
+                className="text-[52px] lg:text-[72px]"
                 style={{
                   fontFamily: "'Cormorant Garamond', Georgia, serif",
                   fontWeight: 600,
-                  fontSize: "72px",
                   color: "#F0EBE0",
                   marginBottom: "16px",
                   lineHeight: 1.1,
@@ -115,11 +118,11 @@ const Index = () => {
               </h1>
 
               <p
+                className="mb-8 lg:mb-14"
                 style={{
                   fontFamily: "'Inter', system-ui, sans-serif",
                   fontSize: "18px",
                   color: "#A09A92",
-                  marginBottom: "56px",
                   textAlign: "center",
                 }}
               >
@@ -147,7 +150,7 @@ const Index = () => {
                   }}
                 >
                   <h2
-                    className="text-xl lg:text-2xl"
+                    className="text-2xl"
                     style={{
                       fontFamily: "'Cormorant Garamond', Georgia, serif",
                       fontWeight: 600,
@@ -179,7 +182,7 @@ const Index = () => {
                   }}
                 >
                   <h2
-                    className="text-xl lg:text-2xl"
+                    className="text-2xl"
                     style={{
                       fontFamily: "'Cormorant Garamond', Georgia, serif",
                       fontWeight: 600,

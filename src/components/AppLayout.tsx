@@ -28,7 +28,7 @@ const AppLayout = ({ children, rightPanel }: AppLayoutProps) => {
     return (
       <div
         style={{
-          height: "100vh",
+          height: "100dvh",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
@@ -52,7 +52,7 @@ const AppLayout = ({ children, rightPanel }: AppLayoutProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="bg-background flex flex-col" style={{ minHeight: "100dvh" }}>
       <Header
         onToggleSidebar={isLoggedIn ? () => setSidebarOpen(!sidebarOpen) : undefined}
       />
