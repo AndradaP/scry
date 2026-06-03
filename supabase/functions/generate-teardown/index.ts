@@ -77,13 +77,11 @@ Bad examples (do not write like this):
 Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`
     : `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms.
 
-A user submitted a product teardown for critique. Your job is to generate 4 search queries that will retrieve the most relevant evaluative frameworks and expert perspectives from the archive.
+A user submitted a product teardown for critique. Your job is to generate 3 search queries that will retrieve the most relevant evaluative frameworks and expert perspectives from the archive.
 
 Teardown excerpt: "${userTeardown?.slice(0, 800)}"
 
-Generate exactly 4 search queries. Follow these rules strictly:
-- Query 1: identify the specific product being analyzed from the teardown text and use its name exactly as it appears. If the product name is ambiguous, use the most distinctive company or product name mentioned in the first paragraph. Never use generic terms like "product teardown" or "unknown product".
-- Queries 2-4: pipe-delimited synonym sets targeting evaluative frameworks relevant to critiquing this type of product. Focus on the lenses a sharp analyst would use to assess this product's strategic position.
+Generate exactly 3 search queries. Each must be a pipe-delimited synonym set targeting evaluative frameworks relevant to critiquing this type of product. Focus on the lenses a sharp analyst would use to assess this product's strategic position.
 
 Good examples for critiquing a B2B SaaS product:
 - "retention|churn|engagement|stickiness"
@@ -100,7 +98,7 @@ Bad examples (do not write like this):
 - "design architecture engineering"
 - "how do you evaluate whether a product has found product market fit"
 
-Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`;
+Return ONLY a JSON array of 3 strings. No explanation. No markdown. No preamble.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -122,14 +120,18 @@ Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.
   try {
     const clean = text.replace(/```json\n?|\n?```/g, "").trim();
     const queries = JSON.parse(clean);
-    if (Array.isArray(queries) && queries.length > 0) return queries;
+    if (Array.isArray(queries) && queries.length > 0) {
+      return mode === "critique"
+        ? [productName ?? "", ...queries]
+        : queries;
+    }
   } catch {
     console.error("Failed to parse query list:", text);
   }
 
   return mode === "generate"
     ? [productName ?? "", "bottom-up|PLG|product-led growth", "enterprise|land and expand|B2B", "retention|stickiness|engagement"]
-    : ["product strategy|positioning|competitive", "retention|churn|stickiness", "activation|onboarding|time to value", "PLG|product-led growth|freemium"];
+    : [productName ?? "", "retention|churn|stickiness", "activation|onboarding|time to value", "PLG|product-led growth|freemium"];
 }
 
 async function searchLennyData(query: string, limit = 5): Promise<string> {
