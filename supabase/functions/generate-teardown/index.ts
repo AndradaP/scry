@@ -43,62 +43,32 @@ function getUserFromJwt(authHeader: string | null): { userId: string | null; use
   }
 }
 
+const DIMENSION_SEEDS = [
+  "positioning|differentiation|competitive moat",
+  "feature design|usability|interaction design",
+  "growth loops|go-to-market|PLG|distribution",
+  "retention|habit|engagement|churn|stickiness",
+  "business model|monetization|pricing|revenue model",
+  "onboarding|UX|activation|aha moment|time to value",
+];
+
 async function generateSearchQueries(
-  mode: string,
   productName?: string,
-  userTeardown?: string
 ): Promise<string[]> {
-  const prompt = mode === "generate"
-    ? `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms across titles, summaries, tags, and content.
+  const prompt = `You are preparing search queries for a product teardown of: "${productName}"
 
-The product to teardown is: "${productName}"
+Each query targets a specific analytical dimension. For each dimension, you are given seed terms that always work. Extend each seed with 2-3 pipe-delimited terms specific to "${productName}"'s category, business model, and competitive context. Use your knowledge of the product. If the product is unfamiliar, return the seed terms unchanged.
 
-Generate exactly 4 search queries. Follow these rules strictly:
-- Query 1: the product name exactly as given, nothing else
-- Queries 2-4: pipe-delimited synonym sets covering different strategic angles relevant to this product's category
-- Each pipe-delimited set should have 2-4 terms that mean similar things or are closely related
-- Think about: go-to-market motion, growth model, competitive dynamics, product category
+Output ONLY a valid JSON array of exactly 6 strings, one per dimension, in this order:
+1. Strategy & Positioning — seed: positioning|differentiation|competitive moat
+2. Feature Breakdown — seed: feature design|usability|interaction design
+3. Growth & Acquisition — seed: growth loops|go-to-market|PLG|distribution
+4. Retention & Engagement — seed: retention|habit|engagement|churn|stickiness
+5. Business & Revenue — seed: business model|monetization|pricing|revenue model
+6. UX & Onboarding — seed: onboarding|UX|activation|aha moment|time to value
 
-Good examples for a product like "Figma":
-- "bottom-up|PLG|product-led growth"
-- "design tools|creative software|collaboration software"
-- "enterprise adoption|land and expand|B2B expansion"
-
-Good examples for a product like "Notion":
-- "all-in-one|workspace|productivity suite"
-- "bottom-up|PLG|product-led growth"
-- "knowledge management|docs|wiki|notes"
-
-Bad examples (do not write like this):
-- "how do design tools win adoption from the bottom up inside a company"
-- "design tools collaboration growth strategy"
-- "figma enterprise positioning competitive"
-
-Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`
-    : `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms.
-
-A user submitted a product teardown for critique. Your job is to generate 3 search queries that will retrieve the most relevant evaluative frameworks and expert perspectives from the archive.
-
-Teardown excerpt: "${userTeardown?.slice(0, 800)}"
-
-Generate exactly 3 search queries. Each must be a pipe-delimited synonym set targeting evaluative frameworks relevant to critiquing this type of product. Focus on the lenses a sharp analyst would use to assess this product's strategic position.
-
-Good examples for critiquing a B2B SaaS product:
-- "retention|churn|engagement|stickiness"
-- "positioning|differentiation|competitive moat|7 powers"
-- "PLG|product-led growth|freemium|bottom-up"
-
-Good examples for critiquing a consumer product:
-- "growth loops|viral coefficient|word of mouth|referral"
-- "activation|onboarding|aha moment|time to value"
-- "retention|habit formation|engagement|DAU MAU"
-
-Bad examples (do not write like this):
-- "product teardown"
-- "design architecture engineering"
-- "how do you evaluate whether a product has found product market fit"
-
-Return ONLY a JSON array of 3 strings. No explanation. No markdown. No preamble.`;
+No explanation. No markdown. No preamble. Valid JSON array only.
+Scry analyzes digital products only — software, apps, and SaaS. Do not generate terms related to hardware, manufacturing, supply chain, or physical products.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -109,7 +79,7 @@ Return ONLY a JSON array of 3 strings. No explanation. No markdown. No preamble.
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5",
-      max_tokens: 200,
+      max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -120,18 +90,76 @@ Return ONLY a JSON array of 3 strings. No explanation. No markdown. No preamble.
   try {
     const clean = text.replace(/```json\n?|\n?```/g, "").trim();
     const queries = JSON.parse(clean);
-    if (Array.isArray(queries) && queries.length > 0) {
-      return mode === "critique"
-        ? [productName ?? "", ...queries]
-        : queries;
-    }
+    if (Array.isArray(queries) && queries.length === 6) return queries;
   } catch {
-    console.error("Failed to parse query list:", text);
+    console.error("Failed to parse generate query list:", text);
   }
 
-  return mode === "generate"
-    ? [productName ?? "", "bottom-up|PLG|product-led growth", "enterprise|land and expand|B2B", "retention|stickiness|engagement"]
-    : [productName ?? "", "retention|churn|stickiness", "activation|onboarding|time to value", "PLG|product-led growth|freemium"];
+  return DIMENSION_SEEDS;
+}
+
+async function generateCritiqueContext(
+  productName: string,
+  userTeardown: string,
+): Promise<{ scope: string; queries: string[] }> {
+  const prompt = `You are analyzing a product teardown to prepare it for structured critique.
+Read the full teardown text below and produce three things:
+
+1. SUMMARY: 4-5 sentences covering what product is analyzed, which analytical angles the author took, and what appears missing or thin. Descriptive, not evaluative.
+
+2. SCOPE: Classify as exactly one of: feature, product, company.
+   - feature = specific feature or flow (e.g. onboarding, a checkout experience, a single modal)
+   - product = full product or app, including core use cases, UX, and value proposition
+   - company = company-level strategy, business model, competitive positioning
+   Default to product if ambiguous.
+
+3. QUERIES: Using your summary, extend each seed below with 2-3 product-specific pipe-delimited terms. Same 6 dimensions in order.
+   1. Strategy & Positioning — seed: positioning|differentiation|competitive moat
+   2. Feature Breakdown — seed: feature design|usability|interaction design
+   3. Growth & Acquisition — seed: growth loops|go-to-market|PLG|distribution
+   4. Retention & Engagement — seed: retention|habit|engagement|churn|stickiness
+   5. Business & Revenue — seed: business model|monetization|pricing|revenue model
+   6. UX & Onboarding — seed: onboarding|UX|activation|aha moment|time to value
+
+Return ONLY valid JSON in this exact shape. No explanation. No markdown. No preamble.
+
+{
+  "summary": "...",
+  "scope": "feature" | "product" | "company",
+  "queries": ["...", "...", "...", "...", "...", "..."]
+}
+
+TEARDOWN TEXT:
+${userTeardown}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5",
+      max_tokens: 500,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  const data = await response.json();
+  const text = data.content[0].text.trim();
+
+  try {
+    const clean = text.replace(/```json\n?|\n?```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    if (parsed.scope && Array.isArray(parsed.queries) && parsed.queries.length === 6) {
+      return { scope: parsed.scope, queries: parsed.queries };
+    }
+  } catch {
+    console.error("Failed to parse critique context:", text);
+  }
+
+  return { scope: "product", queries: DIMENSION_SEEDS };
 }
 
 async function searchLennyData(query: string, limit = 5): Promise<string> {
@@ -404,18 +432,29 @@ ${teardownContext}`;
       }
     }
 
-    // ── Step 1: Generate smart search queries ────────────────────────────────
-    console.log("Generating search queries for:", productName || "critique");
-    const searchQueries = await generateSearchQueries(mode, productName, userTeardown);
+    // ── Step 1: Generate search queries ─────────────────────────────────────
+    let searchQueries: string[];
+    let scope = "product";
+
+    if (mode === "generate") {
+      console.log("Generating search queries for:", productName);
+      searchQueries = await generateSearchQueries(productName);
+    } else {
+      console.log("Generating critique context for:", productName);
+      const critiqueContext = await generateCritiqueContext(productName ?? "", userTeardown ?? "");
+      scope = critiqueContext.scope;
+      searchQueries = critiqueContext.queries;
+    }
+
+    console.log("Scope:", scope);
     console.log("Generated queries:", searchQueries);
 
     // ── Step 2: Search LennyData + web in parallel ───────────────────────────
-    const webQuery = mode === "generate"
-      ? `${productName} product strategy 2026`
-      : `${searchQueries[0]} product strategy 2026`;
+    const webQuery = `${productName} product strategy 2026`;
 
+    const allLennyQueries = [productName ?? "", ...searchQueries];
     const [lennyResults, webSearchResult] = await Promise.all([
-      Promise.all(searchQueries.map(q => searchLennyData(q, 5))),
+      Promise.all(allLennyQueries.map(q => searchLennyData(q, 5))),
       searchWeb(webQuery),
     ]);
 
@@ -432,15 +471,27 @@ ${teardownContext}`;
       : `CURRENT WEB CONTEXT:\nNo recent web results found. Note where current information would strengthen the analysis.`;
 
     // ── Step 3: Generate teardown or critique ────────────────────────────────
-    const lennysLensInstruction = `For lennys_lens specifically: this section must always be substantive. If the archive returned direct mentions of this product or its founders, use them. If not, identify 2-3 frameworks, patterns, or principles that Lenny or his guests have articulated that directly apply to this product's strategic situation. Name the specific guest, episode theme, or recurring pattern you are drawing from and explain why it applies. Never disclaim lack of coverage. Never leave this section thin. The value of Lenny's Lens is applying the corpus intelligently to a specific product, not just quoting it.`;
+    const lennysLensInstruction = `For lennys_lens specifically: this section must always be substantive. Work only from what appears in the provided corpus excerpts above — a guest qualifies as a source only if their name appears as a speaker label in the format "Name (timestamp):" in those excerpts. Names mentioned in passing by other guests do not qualify. Only apply ideas and frameworks that appear directly in the excerpts. Do not import outside frameworks or guest names even without attribution. If the corpus is thin, apply what is there more deeply rather than reaching outside it. Name the specific guest, episode theme, or recurring pattern you are drawing from and explain precisely why it applies to this product's situation. Never disclaim lack of coverage. Never leave this section thin.`;
 
     const sourceInstruction = `You have two knowledge sources:
-1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. This is your analytical lens.
+1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. This is your analytical lens. A guest qualifies as a source only if their name appears as a speaker label in the format "Name (timestamp):" in the provided excerpts — names mentioned in passing by other guests do not qualify. Only use ideas and frameworks that appear directly in those excerpts. Do not import outside frameworks or ideas even without attribution. If the corpus is thin on a dimension, apply what is there more deeply rather than reaching outside it.
 2. CURRENT WEB CONTEXT — use for current facts, recent product developments, leadership, competitive landscape, and anything time-sensitive. Always anchor the teardown in what is true today.
 
 When these sources conflict, trust web context for facts and the archive for frameworks.
 
 CRITICAL: Your response must be valid JSON only. Do not use unescaped quotes inside string values. Do not use backticks inside strings. Escape any apostrophes or special characters properly. Never output markdown outside of the JSON structure.`;
+
+    const digitalProductsConstraint = `Scry analyzes digital products only — software, apps, and SaaS. If a submission references hardware, manufacturing, or physical products, note this is outside scope and redirect analysis to the digital product layer only.`;
+
+    const scopeConditionalBlock = `The user's teardown has been classified as scope: ${scope}.
+
+Apply scope-aware evaluation inside gaps_and_blind_spots and framework_alignment only. suggested_improvements follows from gaps — stay within the same scope boundary.
+
+If scope is "feature": evaluate against UX quality, interaction design, user flow, edge cases, usability. Do not flag missing growth model, business model, or company-level strategy.
+If scope is "product": evaluate against product strategy, positioning, UX, onboarding, growth model, retention. Flag missing business model or pricing only if monetization is clearly central to the product being analyzed.
+If scope is "company": evaluate against the full spectrum — strategy, competitive positioning, business model, distribution, growth loops, retention, UX quality. No restrictions.
+
+strengths and lennys_lens are unconditional regardless of scope.`;
 
     const systemPrompt = mode === "critique"
       ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
@@ -457,7 +508,11 @@ Format your response as a JSON object with these exact keys: overall_assessment,
 
 Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
 
-${lennysLensInstruction}`
+${scopeConditionalBlock}
+
+${lennysLensInstruction}
+
+${digitalProductsConstraint}`
       : `You are a world-class product analyst with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
 
 ${sourceInstruction}
@@ -474,7 +529,9 @@ Throughout each section, attribute insights to specific experts by name and doma
 
 Where the archive contains differing perspectives between experts, surface that tension explicitly rather than flattening it.
 
-${lennysLensInstruction}`;
+${lennysLensInstruction}
+
+${digitalProductsConstraint}`;
 
     const userMessage = mode === "critique"
       ? `Please critique this product teardown:\n\n${userTeardown}`
