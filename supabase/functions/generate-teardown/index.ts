@@ -162,7 +162,8 @@ ${userTeardown}`;
   return { scope: "product", queries: DIMENSION_SEEDS };
 }
 
-async function searchLennyData(query: string, limit = 5): Promise<string> {
+
+async function searchLennyData(query: string, limit = 5, contentType = ""): Promise<string> {
   const token = Deno.env.get("LENNYSDATA_TOKEN") ?? "";
 
   const response = await fetch("https://mcp.lennysdata.com/mcp", {
@@ -178,7 +179,7 @@ async function searchLennyData(query: string, limit = 5): Promise<string> {
       method: "tools/call",
       params: {
         name: "search_content",
-        arguments: { query, limit },
+        arguments: { query, limit, content_type: contentType },
       },
     }),
   });
@@ -225,6 +226,80 @@ async function searchLennyData(query: string, limit = 5): Promise<string> {
   }
 
   return "";
+}
+
+function extractLennyTurns(corpus: string): string {
+  const lines = corpus.split("\n");
+  const lennyTurns: string[] = [];
+  let currentTurn: string[] = [];
+  let inLennyTurn = false;
+
+  const lennyPattern = /^\*\*(Lenny Rachitsky|Lenny)\*\*\s*\(\d/;
+  const anySpeakerPattern = /^\*\*[^*]+\*\*\s*\(\d/;
+
+  for (const line of lines) {
+    if (lennyPattern.test(line)) {
+      if (currentTurn.length > 0) lennyTurns.push(currentTurn.join("\n"));
+      currentTurn = [line];
+      inLennyTurn = true;
+    } else if (anySpeakerPattern.test(line)) {
+      if (inLennyTurn && currentTurn.length > 0) lennyTurns.push(currentTurn.join("\n"));
+      currentTurn = [];
+      inLennyTurn = false;
+    } else if (inLennyTurn) {
+      currentTurn.push(line);
+    }
+  }
+  if (inLennyTurn && currentTurn.length > 0) lennyTurns.push(currentTurn.join("\n"));
+
+  return lennyTurns
+    .filter(turn => turn.replace(/^\*\*[^*]+\*\*\s*\([^)]+\):\s*/, "").trim().length > 150)
+    .join("\n\n");
+}
+
+async function generateLennysLens(
+  productName: string,
+  mode: string,
+  scope: string,
+  lennyTurns: string,
+): Promise<string> {
+  const context = mode === "critique"
+    ? `a ${scope}-level teardown of ${productName}`
+    : `a product teardown of ${productName}`;
+
+  const turnsBlock = lennyTurns.length > 0
+    ? `LENNY'S OWN WORDS:\n${lennyTurns}`
+    : `LENNY'S OWN WORDS:\nNo direct synthesis turns found for this product's themes.`;
+
+  const prompt = `You are writing the "Lenny's Lens" section for ${context}.
+
+This section must reflect only what Lenny Rachitsky himself has synthesized or observed — not what his guests said. The excerpts below are Lenny's own speaker turns from his podcast.
+
+STRICT RULES:
+- Do not include a title or heading. Start directly with the content.
+- Do not cite any guest names. Do not use inline citations of any kind.
+- Draw only from patterns, observations, or conclusions Lenny himself expressed in these turns.
+- If the turns are thin or off-topic, write about what Lenny's consistent concerns and frameworks suggest about this product's situation — stay grounded in his perspective, not in general product wisdom.
+- 3-5 sentences. No em dashes. No sycophancy. No AI filler phrases. Write with conviction.
+
+${turnsBlock}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 400,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  const data = await response.json();
+  return data.content[0].text.trim();
 }
 
 async function searchWeb(query: string): Promise<{ text: string; firstUrl: string }> {
@@ -453,13 +528,17 @@ ${teardownContext}`;
     const webQuery = `${productName} product strategy 2026`;
 
     const allLennyQueries = [productName ?? "", ...searchQueries];
-    const [lennyResults, webSearchResult] = await Promise.all([
+    const [lennyResults, webSearchResult, lennysLensTurns] = await Promise.all([
       Promise.all(allLennyQueries.map(q => searchLennyData(q, 5))),
       searchWeb(webQuery),
+      Promise.all([productName ?? "", ...searchQueries.slice(0, 2)].map(q => searchLennyData(q, 3, "podcast")))
+        .then(results => extractLennyTurns(results.filter(Boolean).join("\n\n---\n\n"))),
     ]);
 
     const lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
     console.log("Lenny corpus length:", lennyCorpus.length);
+    console.log("Lenny's Lens turns length:", lennysLensTurns.length);
+    console.log("Lenny's Lens turns preview:", lennysLensTurns.slice(0, 300));
     console.log("Web context length:", webSearchResult.text.length);
 
     const lennySection = lennyCorpus.length > 0
@@ -470,12 +549,16 @@ ${teardownContext}`;
       ? `CURRENT WEB CONTEXT (use for facts, recent developments, current state):\n${webSearchResult.text}`
       : `CURRENT WEB CONTEXT:\nNo recent web results found. Note where current information would strengthen the analysis.`;
 
-    // ── Step 3: Generate teardown or critique ────────────────────────────────
-    const lennysLensInstruction = `For lennys_lens specifically: this section must always be substantive. Work only from what appears in the provided corpus excerpts above — a guest qualifies as a source only if their name appears as a speaker label in the format "Name (timestamp):" in those excerpts. Names mentioned in passing by other guests do not qualify. Only apply ideas and frameworks that appear directly in the excerpts. Do not import outside frameworks or guest names even without attribution. If the corpus is thin, apply what is there more deeply rather than reaching outside it. Name the specific guest, episode theme, or recurring pattern you are drawing from and explain precisely why it applies to this product's situation. Never disclaim lack of coverage. Never leave this section thin.`;
+    // ── Step 3: Generate teardown/critique + isolated Lenny's Lens in parallel ─
 
     const sourceInstruction = `You have two knowledge sources:
-1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. This is your analytical lens. A guest qualifies as a source only if their name appears as a speaker label in the format "Name (timestamp):" in the provided excerpts — names mentioned in passing by other guests do not qualify. Only use ideas and frameworks that appear directly in those excerpts. Do not import outside frameworks or ideas even without attribution. If the corpus is thin on a dimension, apply what is there more deeply rather than reaching outside it.
-2. CURRENT WEB CONTEXT — use for current facts, recent product developments, leadership, competitive landscape, and anything time-sensitive. Always anchor the teardown in what is true today.
+1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. This is your analytical lens. A guest qualifies as a source only if their name appears as a bold speaker label in the transcript format **Name** (timestamp): in the provided excerpts — names appearing within another speaker's dialogue do not qualify. Only use ideas and frameworks that appear directly in those excerpts. Do not import outside frameworks or ideas even without attribution. If the corpus is thin on a dimension, apply what is there more deeply rather than reaching outside it.
+2. CURRENT WEB CONTEXT — use for current facts, recent product developments, competitive landscape, and anything time-sensitive. Always anchor the teardown in what is true today.
+
+CITATION RULES — apply to every section without exception:
+- Lenny's Archive sources: cite as (Name, Role · Lenny's Archive). Only valid if the person's name appears as a bold speaker label in the transcript format **Name** (timestamp): in the provided excerpts. A name appearing inside another speaker's sentence — e.g. "Lenny told me that Sho Kuwamoto said..." — does NOT qualify. The name must be the speaker, not the subject of a quote. For the role, use only what the transcript itself states about this person — do not infer or supplement from training knowledge.
+- Web sources: cite by outlet and date only — (Outlet, Month Year). Never cite an individual's name from web context, even if a name appears in the snippet. Ideas and frameworks from training knowledge are welcome — never attach a name to them.
+- Training knowledge alone: never a valid source for any named attribution, even to real people who genuinely said or wrote those things.
 
 When these sources conflict, trust web context for facts and the archive for frameworks.
 
@@ -493,24 +576,26 @@ If scope is "company": evaluate against the full spectrum — strategy, competit
 
 strengths and lennys_lens are unconditional regardless of scope.`;
 
+    const critiqueSourceConstraint = `ADDITIONAL CITATION RULE FOR CRITIQUE MODE: Do not cite any person whose name appears in the user's submitted teardown — names inherited from the user's text do not qualify as Lenny's Archive sources regardless of whether they are real experts. The citation rules in sourceInstruction above apply in full.`;
+
     const systemPrompt = mode === "critique"
       ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
 
 ${sourceInstruction}
 
+${critiqueSourceConstraint}
+
 ${lennySection}
 
 ${webSection}
 
-Using both sources, produce a structured critique with exactly 6 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
+Using both sources, produce a structured critique with exactly 5 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
 
-Format your response as a JSON object with these exact keys: overall_assessment, strengths, gaps_and_blind_spots, framework_alignment, suggested_improvements, lennys_lens.
+Format your response as a JSON object with these exact keys: overall_assessment, strengths, gaps_and_blind_spots, framework_alignment, suggested_improvements.
 
-Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
+Throughout each section, attribute insights inline using the formats defined above: (Name, Role · Lenny's Archive) for corpus guests, (Outlet, Month Year) for web sources.
 
 ${scopeConditionalBlock}
-
-${lennysLensInstruction}
 
 ${digitalProductsConstraint}`
       : `You are a world-class product analyst with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
@@ -521,15 +606,13 @@ ${lennySection}
 
 ${webSection}
 
-Using both sources, produce a comprehensive full-stack product teardown with exactly 7 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
+Using both sources, produce a comprehensive full-stack product teardown with exactly 6 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
 
-Format your response as a JSON object with these exact keys: product_url, product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights, lennys_lens. For product_url, provide the official product homepage URL (e.g. "https://figma.com"). If unknown, use an empty string.
+Format your response as a JSON object with these exact keys: product_url, product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights. For product_url, provide the official product homepage URL (e.g. "https://figma.com"). If unknown, use an empty string.
 
-Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
+Throughout each section, attribute insights inline using the formats defined above: (Name, Role · Lenny's Archive) for corpus guests, (Outlet, Month Year) for web sources.
 
 Where the archive contains differing perspectives between experts, surface that tension explicitly rather than flattening it.
-
-${lennysLensInstruction}
 
 ${digitalProductsConstraint}`;
 
@@ -537,23 +620,25 @@ ${digitalProductsConstraint}`;
       ? `Please critique this product teardown:\n\n${userTeardown}`
       : `Please produce a full-stack teardown of: ${productName}`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 3000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    const [mainResponse, rawLennysLens] = await Promise.all([
+      fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 3500,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+        }),
+      }).then(r => r.json()),
+      generateLennysLens(productName ?? "", mode, scope, lennysLensTurns),
+    ]);
 
-    const data = await response.json();
-    const text = data.content[0].text;
+    const text = mainResponse.content[0].text;
     const clean = text.replace(/```json\n?|\n?```/g, "").trim();
 
     let parsed;
@@ -568,6 +653,8 @@ ${digitalProductsConstraint}`;
         throw new Error(`Failed to parse Claude response: ${e.message}`);
       }
     }
+
+    parsed.lennys_lens = rawLennysLens;
 
     if (userId && !isDevUser) {
       await supabase.rpc("increment_usage", { p_user_id: userId, p_date: today });
