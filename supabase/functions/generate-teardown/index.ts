@@ -382,6 +382,39 @@ RULES:
   return data.content[0].text.trim();
 }
 
+async function callMainModel(systemPrompt: string, userMessage: string): Promise<Record<string, unknown>> {
+  const mainResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 3500,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  }).then(r => r.json());
+
+  const text = mainResponse?.content?.[0]?.text;
+  if (!text) {
+    console.error("callMainModel API error:", JSON.stringify(mainResponse));
+    throw new Error("No content in Claude response");
+  }
+  const clean = text.replace(/```json\n?|\n?```/g, "").trim();
+
+  try {
+    return JSON.parse(clean);
+  } catch (e) {
+    console.error("JSON parse failed, attempting salvage:", e.message);
+    const match = clean.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error(`Failed to parse Claude response: ${e.message}`);
+  }
+}
+
 async function searchWeb(query: string): Promise<{ text: string; firstUrl: string }> {
   const apiKey = Deno.env.get("EXA_API_KEY") ?? "";
 
@@ -697,35 +730,12 @@ ${digitalProductsConstraint}`;
       ? `Please critique this product teardown:\n\n${userTeardown}`
       : `Please produce a full-stack teardown of: ${productName}`;
 
-    const mainResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 3500,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    }).then(r => r.json());
-
-    const text = mainResponse.content[0].text;
-    const clean = text.replace(/```json\n?|\n?```/g, "").trim();
-
-    let parsed;
+    let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(clean);
-    } catch (e) {
-      console.error("JSON parse failed, attempting salvage:", e.message);
-      const match = clean.match(/\{[\s\S]*\}/);
-      if (match) {
-        parsed = JSON.parse(match[0]);
-      } else {
-        throw new Error(`Failed to parse Claude response: ${e.message}`);
-      }
+      parsed = await callMainModel(systemPrompt, userMessage);
+    } catch (firstError) {
+      console.error("Main call failed, retrying once:", firstError.message);
+      parsed = await callMainModel(systemPrompt, userMessage);
     }
 
     // ── Verify archive citations across all sections ──────────────────────────
