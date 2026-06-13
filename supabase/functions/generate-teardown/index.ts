@@ -665,7 +665,7 @@ ${teardownContext}`;
 2. CURRENT WEB CONTEXT — use for current facts, recent developments, and anything time-sensitive.
 
 CITATION FORMAT — apply to every section:
-- Archive: (Name, Role · Lenny's Archive) — every person you name must have this badge in the same sentence. The person's name always comes first — never lead with the outlet, source, or product name. Only cite an archive guest when the retrieved excerpt explicitly and directly supports the specific claim — do not attribute a framework by name based on general expertise. Cite at most 3 archive sources per section.
+- Archive: (Name, Role · Lenny's Archive) — every person you name must have this badge in the same sentence. The person's name always comes first — never lead with the outlet, source, or product name. Only cite an archive guest when the retrieved excerpt explicitly and directly supports the specific claim — do not attribute a framework by name based on general expertise. Only attribute a concept to the person who explicitly originated it in the excerpt — do not attribute ideas to other people merely mentioned nearby. Cite at most 3 archive sources per section.
 - Web: (Outlet, Month Year) — outlet name only, never an individual's name. Only cite a web source if it directly covers ${productName ?? "this product"}. Do not cite web sources whose primary subject is a different company, product, or industry.
 - Training knowledge: welcome for analysis and frameworks. Never attach a person's name to it.
 - Do not present case studies from the archive about other companies as if they happened to the product you are analyzing.
