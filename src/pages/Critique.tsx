@@ -9,6 +9,7 @@ import DownloadButton from "@/components/DownloadButton";
 import ShareButton from "@/components/ShareButton";
 import { ArrowRight, Upload } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
+import { FeedbackBar } from "@/components/FeedbackBar";
 import { supabase } from "@/lib/supabase";
 
 const CRITIQUE_SECTIONS = [
@@ -509,6 +510,7 @@ const Critique = () => {
               )}
               {!productName && <div className="mb-10" />}
               <SectionDisplay sections={sections} />
+              <FeedbackBar teardownId={entryId} />
             </div>
 
             {/* Mobile chat tab — only shown on mobile when chat tab is active */}

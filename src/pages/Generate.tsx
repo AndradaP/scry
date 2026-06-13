@@ -9,6 +9,7 @@ import DownloadButton from "@/components/DownloadButton";
 import ShareButton from "@/components/ShareButton";
 import { ArrowRight } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
+import { FeedbackBar } from "@/components/FeedbackBar";
 import { supabase } from "@/lib/supabase";
 
 const GENERATE_SECTIONS = [
@@ -339,6 +340,7 @@ const Generate = () => {
                 </div>
               </div>
               <SectionDisplay sections={sections} />
+              <FeedbackBar teardownId={entryId} />
             </div>
 
             {/* Mobile chat tab — only shown on mobile when chat tab is active */}
