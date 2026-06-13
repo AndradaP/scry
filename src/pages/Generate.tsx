@@ -272,6 +272,9 @@ const Generate = () => {
               placeholder="e.g. Plaid, Duolingo, Figma's multiplayer feature..."
               className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-xl font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
             />
+            <p className="mt-2 font-mono text-xs text-muted-foreground/40">
+              Works best for software products, apps, and SaaS
+            </p>
             <button
               onClick={handleGenerate}
               disabled={!productName.trim()}
