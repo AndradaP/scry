@@ -38,7 +38,7 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
 
   const tabs: { key: FilterTab; label: string }[] = [
     { key: "all", label: "All" },
-    { key: "generate", label: "Generated" },
+    { key: "generate", label: "Teardowns" },
     { key: "critique", label: "Critiques" },
   ];
 
@@ -53,7 +53,7 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
   };
 
   const emptyMessage = () => {
-    if (activeTab === "generate") return { text: "No generated teardowns yet.", link: "/generate", linkText: "Generate a teardown" };
+    if (activeTab === "generate") return { text: "No teardowns yet.", link: "/generate", linkText: "Generate a teardown" };
     if (activeTab === "critique") return { text: "No critiques yet.", link: "/critique", linkText: "Submit for critique" };
     return { text: "No teardowns yet.", link: "/generate", linkText: "Generate a teardown" };
   };
@@ -129,7 +129,7 @@ const HistorySidebar = ({ isOpen, onClose }: HistorySidebarProps) => {
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-body text-xs font-medium text-foreground truncate">{entry.product_name}</span>
                     <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-primary border border-primary/40 px-1.5 py-0.5 shrink-0">
-                      {entry.mode === "generate" ? "Generate" : "Critique"}
+                      {entry.mode === "generate" ? "Teardown" : "Critique"}
                     </span>
                   </div>
                   <span className="font-mono text-[10px] text-muted-foreground shrink-0 ml-2">
