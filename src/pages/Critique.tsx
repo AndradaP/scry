@@ -22,8 +22,8 @@ const CRITIQUE_SECTIONS = [
 ];
 
 const LOADING_MESSAGES = [
-  "Reading your teardown...",
   "Summoning Lenny's council...",
+  "Reading your teardown...",
   "Identifying gaps...",
   "Applying frameworks...",
   "Forging your critique...",
