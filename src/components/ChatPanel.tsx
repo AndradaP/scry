@@ -16,13 +16,13 @@ interface ChatPanelProps {
   variant?: "panel";
 }
 
-const renderWithCitations = (text: string): React.ReactNode[] => {
+const renderWithCitations = (text: string, prefix = ""): React.ReactNode[] => {
   const regex = /(\([^)]+?,\s*[^)]+?\))/g;
   const parts = text.split(regex);
   return parts.map((part, i) =>
     regex.test(part)
-      ? <span key={i} style={{ fontStyle: "italic", fontSize: "13px", color: "#A09A92" }}>{part}</span>
-      : <span key={i}>{part}</span>
+      ? <span key={`${prefix}${i}`} style={{ fontStyle: "italic", fontSize: "13px", color: "#A09A92" }}>{part}</span>
+      : <span key={`${prefix}${i}`}>{part}</span>
   );
 };
 
@@ -121,7 +121,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
                 <p className="mb-2">
                   {Array.isArray(children)
                     ? children.flatMap((child, i) =>
-                        typeof child === "string" ? renderWithCitations(child) : [child]
+                        typeof child === "string" ? renderWithCitations(child, `${i}-`) : [child]
                       )
                     : typeof children === "string"
                     ? renderWithCitations(children)
