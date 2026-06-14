@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, isValidElement, cloneElement } from "react";
 import { ArrowUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -16,13 +16,13 @@ interface ChatPanelProps {
   variant?: "panel";
 }
 
-const renderWithCitations = (text: string): React.ReactNode[] => {
+const renderWithCitations = (text: string, prefix = ""): React.ReactNode[] => {
   const regex = /(\([^)]+?,\s*[^)]+?\))/g;
   const parts = text.split(regex);
   return parts.map((part, i) =>
     regex.test(part)
-      ? <span key={i} style={{ fontStyle: "italic", fontSize: "13px", color: "#A09A92" }}>{part}</span>
-      : <span key={i}>{part}</span>
+      ? <span key={`${prefix}${i}`} style={{ fontStyle: "italic", fontSize: "13px", color: "#A09A92" }}>{part}</span>
+      : <span key={`${prefix}${i}`}>{part}</span>
   );
 };
 
@@ -50,7 +50,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || isStreaming) return;
     onSend(input.trim());
     setInput("");
   };
@@ -121,7 +121,9 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
                 <p className="mb-2">
                   {Array.isArray(children)
                     ? children.flatMap((child, i) =>
-                        typeof child === "string" ? renderWithCitations(child) : [child]
+                        typeof child === "string"
+                          ? renderWithCitations(child, `${i}-`)
+                          : [isValidElement(child) ? cloneElement(child, { key: `el-${i}` }) : child]
                       )
                     : typeof children === "string"
                     ? renderWithCitations(children)
@@ -196,7 +198,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
       {/* Desktop: text send button */}
       <button
         type="submit"
-        disabled={!input.trim() || isLoading}
+        disabled={!input.trim() || isLoading || isStreaming}
         className="hidden lg:block"
         style={{
           fontFamily: "'Inter', system-ui, sans-serif",
@@ -207,7 +209,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           border: "none",
           cursor: "pointer",
           padding: "8px 0",
-          opacity: !input.trim() || isLoading ? 0.3 : 1,
+          opacity: !input.trim() || isLoading || isStreaming ? 0.3 : 1,
           transition: "opacity 0.15s",
           borderRadius: 0,
           flexShrink: 0,
@@ -218,15 +220,15 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
       {/* Mobile: pill arrow button */}
       <button
         type="submit"
-        disabled={!input.trim() || isLoading}
+        disabled={!input.trim() || isLoading || isStreaming}
         className="lg:hidden flex items-center justify-center flex-shrink-0"
         style={{
           width: "52px",
           height: "36px",
           borderRadius: "18px",
-          background: input.trim() && !isLoading ? "#D4A843" : "#2E2C28",
-          border: `1px solid ${input.trim() && !isLoading ? "#D4A843" : "#3E3C38"}`,
-          cursor: input.trim() && !isLoading ? "pointer" : "default",
+          background: input.trim() && !isLoading && !isStreaming ? "#D4A843" : "#2E2C28",
+          border: `1px solid ${input.trim() && !isLoading && !isStreaming ? "#D4A843" : "#3E3C38"}`,
+          cursor: input.trim() && !isLoading && !isStreaming ? "pointer" : "default",
           transition: "background 0.15s, border-color 0.15s",
           padding: 0,
         }}
@@ -235,7 +237,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           style={{
             width: "16px",
             height: "16px",
-            color: input.trim() && !isLoading ? "#1A1815" : "#7A7670",
+            color: input.trim() && !isLoading && !isStreaming ? "#1A1815" : "#7A7670",
           }}
         />
       </button>

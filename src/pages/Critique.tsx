@@ -9,6 +9,7 @@ import DownloadButton from "@/components/DownloadButton";
 import ShareButton from "@/components/ShareButton";
 import { ArrowRight, Upload } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
+import { FeedbackBar } from "@/components/FeedbackBar";
 import { supabase } from "@/lib/supabase";
 
 const CRITIQUE_SECTIONS = [
@@ -75,6 +76,7 @@ const Critique = () => {
   const [chatStreaming, setChatStreaming] = useState(false);
   const [mobileTab, setMobileTab] = useState<"teardown" | "chat">("teardown");
   const [entryId, setEntryId] = useState<string>("");
+  const [entrySaved, setEntrySaved] = useState(false);
   const [usageCount, setUsageCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -107,6 +109,7 @@ const Critique = () => {
           setCritique(sectionMap);
           setChatMessages(entry.chatMessages);
           setEntryId(entry.id);
+          setEntrySaved(true);
         }
       };
       load();
@@ -227,6 +230,7 @@ const Critique = () => {
         sections,
         chatMessages: [],
       });
+      setEntrySaved(true);
     } catch (error) {
       console.error("Error generating critique:", error);
       setValidationError("Something went wrong. Please try again.");
@@ -447,6 +451,9 @@ const Critique = () => {
                 placeholder="e.g. Figma, Figma's AI agent, Clay's 2026 product updates, Duolingo for chess"
                 className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-3 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
               />
+              <p className="mt-2 font-mono text-xs text-muted-foreground/40">
+                Works best for software products, apps, and SaaS
+              </p>
             </div>
 
             <button
@@ -490,22 +497,22 @@ const Critique = () => {
 
             {/* Critique content — always visible on desktop, hidden on mobile when chat tab is active */}
             <div className={`${mobileTab === "chat" ? "hidden" : "block"} lg:block`}>
-              <div className="flex items-start justify-between mb-2">
-                <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
-                  Critique
-                </h1>
+              <div className="flex items-start justify-between mb-10">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                    Critique
+                  </p>
+                  <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
+                    {productName || "Critique"}
+                  </h1>
+                </div>
                 <div className="flex items-center gap-2">
                   <ShareButton teardownId={entryId} />
                   <DownloadButton productName={critiqueTitle} sections={sections} />
                 </div>
               </div>
-              {productName && (
-                <p className="font-mono text-sm text-muted-foreground mb-10">
-                  {productName}
-                </p>
-              )}
-              {!productName && <div className="mb-10" />}
               <SectionDisplay sections={sections} />
+              {entrySaved && <FeedbackBar teardownId={entryId} />}
             </div>
 
             {/* Mobile chat tab — only shown on mobile when chat tab is active */}

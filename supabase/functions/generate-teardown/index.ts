@@ -43,64 +43,32 @@ function getUserFromJwt(authHeader: string | null): { userId: string | null; use
   }
 }
 
+const DIMENSION_SEEDS = [
+  "positioning|differentiation|competitive moat",
+  "feature design|usability|interaction design",
+  "growth loops|go-to-market|PLG|distribution",
+  "retention|habit|engagement|churn|stickiness",
+  "business model|monetization|pricing|revenue model",
+  "onboarding|UX|activation|aha moment|time to value",
+];
+
 async function generateSearchQueries(
-  mode: string,
   productName?: string,
-  userTeardown?: string
 ): Promise<string[]> {
-  const prompt = mode === "generate"
-    ? `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms across titles, summaries, tags, and content.
+  const prompt = `You are preparing search queries for a product teardown of: "${productName}"
 
-The product to teardown is: "${productName}"
+Each query targets a specific analytical dimension. For each dimension, you are given seed terms that always work. Extend each seed with 2-3 pipe-delimited terms specific to "${productName}"'s category, business model, and competitive context. Use your knowledge of the product. If the product is unfamiliar, return the seed terms unchanged.
 
-Generate exactly 4 search queries. Follow these rules strictly:
-- Query 1: the product name exactly as given, nothing else
-- Queries 2-4: pipe-delimited synonym sets covering different strategic angles relevant to this product's category
-- Each pipe-delimited set should have 2-4 terms that mean similar things or are closely related
-- Think about: go-to-market motion, growth model, competitive dynamics, product category
+Output ONLY a valid JSON array of exactly 6 strings, one per dimension, in this order:
+1. Strategy & Positioning — seed: positioning|differentiation|competitive moat
+2. Feature Breakdown — seed: feature design|usability|interaction design
+3. Growth & Acquisition — seed: growth loops|go-to-market|PLG|distribution
+4. Retention & Engagement — seed: retention|habit|engagement|churn|stickiness
+5. Business & Revenue — seed: business model|monetization|pricing|revenue model
+6. UX & Onboarding — seed: onboarding|UX|activation|aha moment|time to value
 
-Good examples for a product like "Figma":
-- "bottom-up|PLG|product-led growth"
-- "design tools|creative software|collaboration software"
-- "enterprise adoption|land and expand|B2B expansion"
-
-Good examples for a product like "Notion":
-- "all-in-one|workspace|productivity suite"
-- "bottom-up|PLG|product-led growth"
-- "knowledge management|docs|wiki|notes"
-
-Bad examples (do not write like this):
-- "how do design tools win adoption from the bottom up inside a company"
-- "design tools collaboration growth strategy"
-- "figma enterprise positioning competitive"
-
-Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`
-    : `You are helping search a podcast and newsletter archive using a case-insensitive text search engine. The search supports pipe-delimited alternatives to match synonyms and related terms.
-
-A user submitted a product teardown for critique. Your job is to generate 4 search queries that will retrieve the most relevant evaluative frameworks and expert perspectives from the archive.
-
-Teardown excerpt: "${userTeardown?.slice(0, 800)}"
-
-Generate exactly 4 search queries. Follow these rules strictly:
-- Query 1: identify the specific product being analyzed from the teardown text and use its name exactly as it appears. If the product name is ambiguous, use the most distinctive company or product name mentioned in the first paragraph. Never use generic terms like "product teardown" or "unknown product".
-- Queries 2-4: pipe-delimited synonym sets targeting evaluative frameworks relevant to critiquing this type of product. Focus on the lenses a sharp analyst would use to assess this product's strategic position.
-
-Good examples for critiquing a B2B SaaS product:
-- "retention|churn|engagement|stickiness"
-- "positioning|differentiation|competitive moat|7 powers"
-- "PLG|product-led growth|freemium|bottom-up"
-
-Good examples for critiquing a consumer product:
-- "growth loops|viral coefficient|word of mouth|referral"
-- "activation|onboarding|aha moment|time to value"
-- "retention|habit formation|engagement|DAU MAU"
-
-Bad examples (do not write like this):
-- "product teardown"
-- "design architecture engineering"
-- "how do you evaluate whether a product has found product market fit"
-
-Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.`;
+No explanation. No markdown. No preamble. Valid JSON array only.
+Scry analyzes digital products only — software, apps, and SaaS. Do not generate terms related to hardware, manufacturing, supply chain, or physical products.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -110,29 +78,96 @@ Return ONLY a JSON array of 4 strings. No explanation. No markdown. No preamble.
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5",
-      max_tokens: 200,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     }),
   });
 
   const data = await response.json();
-  const text = data.content[0].text.trim();
+  const text = data?.content?.[0]?.text?.trim();
+  if (!text) {
+    console.error("generateSearchQueries API error:", JSON.stringify(data));
+    return DIMENSION_SEEDS;
+  }
 
   try {
     const clean = text.replace(/```json\n?|\n?```/g, "").trim();
     const queries = JSON.parse(clean);
-    if (Array.isArray(queries) && queries.length > 0) return queries;
+    if (Array.isArray(queries) && queries.length === 6) return queries;
   } catch {
-    console.error("Failed to parse query list:", text);
+    console.error("Failed to parse generate query list:", text);
   }
 
-  return mode === "generate"
-    ? [productName ?? "", "bottom-up|PLG|product-led growth", "enterprise|land and expand|B2B", "retention|stickiness|engagement"]
-    : ["product strategy|positioning|competitive", "retention|churn|stickiness", "activation|onboarding|time to value", "PLG|product-led growth|freemium"];
+  return DIMENSION_SEEDS;
 }
 
-async function searchLennyData(query: string, limit = 5): Promise<string> {
+async function generateCritiqueContext(
+  productName: string,
+  userTeardown: string,
+): Promise<{ scope: string; queries: string[] }> {
+  const prompt = `You are analyzing a product teardown to prepare it for structured critique.
+Read the full teardown text below and produce three things:
+
+1. SUMMARY: 4-5 sentences covering what product is analyzed, which analytical angles the author took, and what appears missing or thin. Descriptive, not evaluative.
+
+2. SCOPE: Classify as exactly one of: feature, product, company.
+   - feature = specific feature or flow (e.g. onboarding, a checkout experience, a single modal)
+   - product = full product or app, including core use cases, UX, and value proposition
+   - company = company-level strategy, business model, competitive positioning
+   Default to product if ambiguous.
+
+3. QUERIES: Using your summary, extend each seed below with 2-3 product-specific pipe-delimited terms. Same 6 dimensions in order.
+   1. Strategy & Positioning — seed: positioning|differentiation|competitive moat
+   2. Feature Breakdown — seed: feature design|usability|interaction design
+   3. Growth & Acquisition — seed: growth loops|go-to-market|PLG|distribution
+   4. Retention & Engagement — seed: retention|habit|engagement|churn|stickiness
+   5. Business & Revenue — seed: business model|monetization|pricing|revenue model
+   6. UX & Onboarding — seed: onboarding|UX|activation|aha moment|time to value
+
+Return ONLY valid JSON in this exact shape. No explanation. No markdown. No preamble.
+
+{
+  "summary": "...",
+  "scope": "feature" | "product" | "company",
+  "queries": ["...", "...", "...", "...", "...", "..."]
+}
+
+TEARDOWN TEXT:
+${userTeardown}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 500,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  const data = await response.json();
+  const text = data?.content?.[0]?.text?.trim();
+
+  try {
+    const clean = text.replace(/```json\n?|\n?```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    if (parsed.scope && Array.isArray(parsed.queries) && parsed.queries.length === 6) {
+      return { scope: parsed.scope, queries: parsed.queries };
+    }
+  } catch {
+    console.error("Failed to parse critique context:", text);
+  }
+
+  return { scope: "product", queries: DIMENSION_SEEDS };
+}
+
+
+async function searchLennyData(query: string, limit = 5, contentType = ""): Promise<string> {
   const token = Deno.env.get("LENNYSDATA_TOKEN") ?? "";
 
   const response = await fetch("https://mcp.lennysdata.com/mcp", {
@@ -148,7 +183,7 @@ async function searchLennyData(query: string, limit = 5): Promise<string> {
       method: "tools/call",
       params: {
         name: "search_content",
-        arguments: { query, limit },
+        arguments: { query, limit, content_type: contentType },
       },
     }),
   });
@@ -195,6 +230,200 @@ async function searchLennyData(query: string, limit = 5): Promise<string> {
   }
 
   return "";
+}
+
+function isVerifiedInCorpus(name: string, corpus: string): boolean {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const speakerPattern = new RegExp(`\\*\\*${escaped}\\*\\*\\s*\\(\\d`, "i");
+  const sourceTitlePattern = new RegExp(`^SOURCE:.*${escaped}`, "im");
+  return speakerPattern.test(corpus) || sourceTitlePattern.test(corpus);
+}
+
+function verifyArchiveCitations(text: string, corpus: string): string {
+  const blockRegex = /\(([^)]+·\s*Lenny's Archive[^)]*)\)/g;
+  let result = text;
+  const blocks: Array<{ full: string; inner: string }> = [];
+  let match;
+  while ((match = blockRegex.exec(text)) !== null) {
+    blocks.push({ full: match[0], inner: match[1] });
+  }
+
+  const strippedNames: string[] = [];
+
+  for (const { full, inner } of blocks) {
+    const parts = inner.split(";").map(p => p.trim());
+    const verified: string[] = [];
+
+    for (const part of parts) {
+      // Extract name: before comma if present, otherwise before the · marker
+      const nameMatch = part.match(/^([^,·]+)[,·]/);
+      if (!nameMatch) {
+        console.log(`Stripping malformed citation: ${part.trim()}`);
+        continue;
+      }
+      const name = nameMatch[1].trim();
+      if (isVerifiedInCorpus(name, corpus)) {
+        verified.push(part);
+      } else {
+        strippedNames.push(name);
+        console.log(`Stripping unverified citation: ${part.trim()}`);
+      }
+    }
+
+    if (verified.length === 0) {
+      result = result.replace(new RegExp("\\s*" + full.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "");
+    } else if (verified.length < parts.length) {
+      result = result.replace(full, `(${verified.join("; ")})`);
+    }
+  }
+
+  // Replace orphaned stripped names in prose with "the team"
+  for (const name of strippedNames) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(new RegExp(`\\b${escaped}'s\\b`, "gi"), "the team's");
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "the team");
+  }
+
+  return result.trim();
+}
+
+function verifyTrainingKnowledgeCitations(text: string): string {
+  // Strip (Name, Role) citations that are neither archive badges nor valid web citations.
+  // Matches: two+ capitalized words followed by comma and non-month-year content.
+  const suspectRegex = /\(([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+),\s*([^)]+)\)/g;
+  const monthYearPattern = /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i;
+  const yearOnlyPattern = /^\d{4}/;
+
+  let result = text;
+  const toStrip: string[] = [];
+  let match;
+
+  while ((match = suspectRegex.exec(text)) !== null) {
+    const full = match[0];
+    const secondPart = match[2].trim();
+    if (full.includes("Lenny's Archive")) continue;
+    if (monthYearPattern.test(secondPart)) continue;
+    if (yearOnlyPattern.test(secondPart)) continue;
+    console.log(`Stripping training-knowledge citation: ${full}`);
+    toStrip.push(full);
+  }
+
+  for (const citation of toStrip) {
+    result = result.replace(new RegExp("\\s*" + citation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "");
+  }
+
+  return result;
+}
+
+function stripBareArchiveCitations(text: string): string {
+  // Strip (Lenny's Archive, year) or (Lenny's Archive · anything) with no person name
+  return text.replace(/\s*\(Lenny's Archive[^)]*\)/g, (match) => {
+    // Keep it only if it contains a · preceded by a name (handled by verifyArchiveCitations)
+    if (/·/.test(match)) return match;
+    console.log(`Stripping bare archive citation: ${match.trim()}`);
+    return "";
+  });
+}
+
+function verifyParsedCitations(parsed: Record<string, unknown>, corpus: string): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value === "string") {
+      let v = verifyArchiveCitations(value, corpus);
+      v = verifyTrainingKnowledgeCitations(v);
+      v = stripBareArchiveCitations(v);
+      result[key] = v;
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+async function generateLennysLens(
+  productName: string,
+  mode: string,
+  lennyCorpus: string,
+  teardownContext: string,
+): Promise<string> {
+  const context = mode === "critique"
+    ? `a critique of a product teardown for ${productName}`
+    : `a product teardown of ${productName}`;
+
+  const corpusBlock = lennyCorpus.length > 0
+    ? `LENNY'S ARCHIVE:\n${lennyCorpus}`
+    : `LENNY'S ARCHIVE:\nNo relevant archive content found.`;
+
+  const prompt = `You are writing the "Lenny's Lens" section for ${context}.
+
+This section applies Lenny Rachitsky's perspective specifically to this product's situation. Use the archive excerpts and the product analysis below as your source material.
+
+PRODUCT ANALYSIS:
+${teardownContext}
+
+${corpusBlock}
+
+RULES:
+- Do not include a title, heading, or label of any kind. The very first character of your response must be the start of the content itself. If your response begins with #, *, or any markdown syntax, that is a violation — start directly with a word.
+- Do not mention any person by name — no guest names, no expert names, no one. Do not use inline citations of any kind.
+- Do not draw comparisons to other companies by name. The section is about ${productName} specifically, not about what Atlassian or HubSpot or anyone else did.
+- Ground every observation in something visible in the archive or the product analysis above. Do not import outside knowledge.
+- Be specific about ${productName}'s situation — generic product wisdom that applies to any company is not acceptable.
+- 3-5 sentences. No em dashes. No sycophancy. No AI filler phrases. Write with conviction.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 400,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  const data = await response.json();
+  if (!data?.content?.[0]?.text) {
+    console.error("Lenny's Lens API error:", JSON.stringify(data));
+    return "";
+  }
+  return data.content[0].text.trim();
+}
+
+async function callMainModel(systemPrompt: string, userMessage: string): Promise<Record<string, unknown>> {
+  const mainResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 3500,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  }).then(r => r.json());
+
+  const text = mainResponse?.content?.[0]?.text;
+  if (!text) {
+    console.error("callMainModel API error:", JSON.stringify(mainResponse));
+    throw new Error("No content in Claude response");
+  }
+  const clean = text.replace(/```json\n?|\n?```/g, "").trim();
+
+  try {
+    return JSON.parse(clean);
+  } catch (e) {
+    console.error("JSON parse failed, attempting salvage:", e.message);
+    const match = clean.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error(`Failed to parse Claude response: ${e.message}`);
+  }
 }
 
 async function searchWeb(query: string): Promise<{ text: string; firstUrl: string }> {
@@ -299,7 +528,7 @@ ${teardownContext}`;
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-5",
-          max_tokens: 1000,
+          max_tokens: 2000,
           stream: true,
           system: systemPrompt,
           messages,
@@ -402,18 +631,29 @@ ${teardownContext}`;
       }
     }
 
-    // ── Step 1: Generate smart search queries ────────────────────────────────
-    console.log("Generating search queries for:", productName || "critique");
-    const searchQueries = await generateSearchQueries(mode, productName, userTeardown);
+    // ── Step 1: Generate search queries ─────────────────────────────────────
+    let searchQueries: string[];
+    let scope = "product";
+
+    if (mode === "generate") {
+      console.log("Generating search queries for:", productName);
+      searchQueries = await generateSearchQueries(productName);
+    } else {
+      console.log("Generating critique context for:", productName);
+      const critiqueContext = await generateCritiqueContext(productName ?? "", userTeardown ?? "");
+      scope = critiqueContext.scope;
+      searchQueries = critiqueContext.queries;
+    }
+
+    console.log("Scope:", scope);
     console.log("Generated queries:", searchQueries);
 
     // ── Step 2: Search LennyData + web in parallel ───────────────────────────
-    const webQuery = mode === "generate"
-      ? `${productName} product strategy 2026`
-      : `${searchQueries[0]} product strategy 2026`;
+    const webQuery = `${productName} product strategy 2026`;
 
+    const allLennyQueries = [productName ?? "", ...searchQueries];
     const [lennyResults, webSearchResult] = await Promise.all([
-      Promise.all(searchQueries.map(q => searchLennyData(q, 5))),
+      Promise.all(allLennyQueries.map(q => searchLennyData(q, 5))),
       searchWeb(webQuery),
     ]);
 
@@ -429,33 +669,56 @@ ${teardownContext}`;
       ? `CURRENT WEB CONTEXT (use for facts, recent developments, current state):\n${webSearchResult.text}`
       : `CURRENT WEB CONTEXT:\nNo recent web results found. Note where current information would strengthen the analysis.`;
 
-    // ── Step 3: Generate teardown or critique ────────────────────────────────
-    const lennysLensInstruction = `For lennys_lens specifically: this section must always be substantive. If the archive returned direct mentions of this product or its founders, use them. If not, identify 2-3 frameworks, patterns, or principles that Lenny or his guests have articulated that directly apply to this product's strategic situation. Name the specific guest, episode theme, or recurring pattern you are drawing from and explain why it applies. Never disclaim lack of coverage. Never leave this section thin. The value of Lenny's Lens is applying the corpus intelligently to a specific product, not just quoting it.`;
+    // ── Step 3: Generate teardown/critique + isolated Lenny's Lens in parallel ─
 
     const sourceInstruction = `You have two knowledge sources:
-1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. This is your analytical lens.
-2. CURRENT WEB CONTEXT — use for current facts, recent product developments, leadership, competitive landscape, and anything time-sensitive. Always anchor the teardown in what is true today.
+1. LENNY'S ARCHIVE — use for frameworks, philosophy, mental models, and strategic patterns. Only use ideas and frameworks that appear directly in the provided excerpts.
+2. CURRENT WEB CONTEXT — use for current facts, recent developments, and anything time-sensitive.
 
-When these sources conflict, trust web context for facts and the archive for frameworks.
+CITATION FORMAT — apply to every section:
+- Archive: (Full Name, Role · Lenny's Archive) — use the person's full first and last name, always. Never use last name only. The person's full name always comes first — never lead with the outlet, source, or product name. Never write a bare (Lenny's Archive, year) reference without a person's full name. Only cite an archive guest when the retrieved excerpt explicitly and directly supports the specific claim — do not attribute a framework by name based on general expertise. Only attribute a concept to the person who explicitly originated it in the excerpt — do not attribute ideas to other people merely mentioned nearby. Cite at most 3 archive sources per section.
+- Web: (Outlet, Month Year) — outlet name only, never an individual's name. Only cite a web source if it directly covers ${productName ?? "this product"}. Do not cite web sources whose primary subject is a different company, product, or industry.
+- Training knowledge: welcome for analysis and frameworks. Never attach a person's name to it.
+- Do not present case studies from the archive about other companies as if they happened to the product you are analyzing.
+
+When sources conflict, trust web context for facts and the archive for frameworks.
 
 CRITICAL: Your response must be valid JSON only. Do not use unescaped quotes inside string values. Do not use backticks inside strings. Escape any apostrophes or special characters properly. Never output markdown outside of the JSON structure.`;
+
+    const digitalProductsConstraint = `Scry analyzes digital products only — software, apps, and SaaS. If a submission references hardware, manufacturing, or physical products, note this is outside scope and redirect analysis to the digital product layer only.`;
+
+    const scopeConditionalBlock = `The user's teardown has been classified as scope: ${scope}.
+
+Apply scope-aware evaluation inside gaps_and_blind_spots and framework_alignment only. suggested_improvements follows from gaps — stay within the same scope boundary.
+
+If scope is "feature": evaluate against UX quality, interaction design, user flow, edge cases, usability. Do not flag missing growth model, business model, or company-level strategy.
+If scope is "product": evaluate against product strategy, positioning, UX, onboarding, growth model, retention. Flag missing business model or pricing only if monetization is clearly central to the product being analyzed.
+If scope is "company": evaluate against the full spectrum — strategy, competitive positioning, business model, distribution, growth loops, retention, UX quality. No restrictions.
+
+strengths and lennys_lens are unconditional regardless of scope.`;
+
+    const critiqueSourceConstraint = `ADDITIONAL CITATION RULE FOR CRITIQUE MODE: Do not cite any person whose name appears in the user's submitted teardown — names inherited from the user's text do not qualify as Lenny's Archive sources regardless of whether they are real experts. The citation rules in sourceInstruction above apply in full.`;
 
     const systemPrompt = mode === "critique"
       ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
 
 ${sourceInstruction}
 
+${critiqueSourceConstraint}
+
 ${lennySection}
 
 ${webSection}
 
-Using both sources, produce a structured critique with exactly 6 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
+Using both sources, produce a structured critique with exactly 5 sections. Be direct and specific. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
 
-Format your response as a JSON object with these exact keys: overall_assessment, strengths, gaps_and_blind_spots, framework_alignment, suggested_improvements, lennys_lens.
+Format your response as a JSON object with these exact keys: overall_assessment, strengths, gaps_and_blind_spots, framework_alignment, suggested_improvements.
 
-Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
+Throughout each section, attribute insights inline using the formats defined above: (Name, Role · Lenny's Archive) for corpus guests, (Outlet, Month Year) for web sources.
 
-${lennysLensInstruction}`
+${scopeConditionalBlock}
+
+${digitalProductsConstraint}`
       : `You are a world-class product analyst with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
 
 ${sourceInstruction}
@@ -464,51 +727,48 @@ ${lennySection}
 
 ${webSection}
 
-Using both sources, produce a comprehensive full-stack product teardown with exactly 7 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
+Using both sources, produce a comprehensive full-stack product teardown with exactly 6 sections. Be specific and opinionated. No em dashes. No sycophancy. No superlatives. No AI filler phrases. Write factually, like a sharp analyst. Each section must be 3-5 sentences maximum. Prioritize insight density over coverage. Be ruthlessly concise.
 
-Format your response as a JSON object with these exact keys: product_url, product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights, lennys_lens. For product_url, provide the official product homepage URL (e.g. "https://figma.com"). If unknown, use an empty string.
+Format your response as a JSON object with these exact keys: product_url, product_overview, strategy_and_positioning, feature_breakdown, growth_model, design_analysis, key_insights. For product_url, provide the official product homepage URL (e.g. "https://figma.com"). If unknown, use an empty string.
 
-Throughout each section, attribute insights to specific experts by name and domain inline — format: (Expert Name, Domain).
+Throughout each section, attribute insights inline using the formats defined above: (Name, Role · Lenny's Archive) for corpus guests, (Outlet, Month Year) for web sources.
 
 Where the archive contains differing perspectives between experts, surface that tension explicitly rather than flattening it.
 
-${lennysLensInstruction}`;
+If the input refers to a specific feature or flow rather than a full product or company, scope all sections to that feature. Do not extrapolate to company-level strategy or growth models beyond what directly relates to the feature being analyzed.
+
+${digitalProductsConstraint}`;
 
     const userMessage = mode === "critique"
       ? `Please critique this product teardown:\n\n${userTeardown}`
       : `Please produce a full-stack teardown of: ${productName}`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 3000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
-
-    const data = await response.json();
-    const text = data.content[0].text;
-    const clean = text.replace(/```json\n?|\n?```/g, "").trim();
-
-    let parsed;
+    let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(clean);
-    } catch (e) {
-      console.error("JSON parse failed, attempting salvage:", e.message);
-      const match = clean.match(/\{[\s\S]*\}/);
-      if (match) {
-        parsed = JSON.parse(match[0]);
-      } else {
-        throw new Error(`Failed to parse Claude response: ${e.message}`);
-      }
+      parsed = await callMainModel(systemPrompt, userMessage);
+    } catch (firstError) {
+      console.error("Main call failed, retrying once:", firstError.message);
+      parsed = await callMainModel(systemPrompt, userMessage);
     }
+
+    // ── Verify archive citations across all sections ──────────────────────────
+    parsed = verifyParsedCitations(parsed, lennyCorpus);
+
+    // ── Lenny's Lens: sequential, informed by main teardown output ────────────
+    const lensContext = [
+      parsed.strategy_and_positioning,
+      parsed.key_insights,
+      parsed.overall_assessment,
+    ].filter(Boolean).join("\n\n");
+
+    let lennysLens = await generateLennysLens(
+      productName ?? "",
+      mode,
+      lennyCorpus,
+      lensContext,
+    );
+    lennysLens = lennysLens.replace(/^#[^\n]*\n+/, "").trim();
+    parsed.lennys_lens = lennysLens;
 
     if (userId && !isDevUser) {
       await supabase.rpc("increment_usage", { p_user_id: userId, p_date: today });
