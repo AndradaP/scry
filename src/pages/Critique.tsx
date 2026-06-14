@@ -494,21 +494,20 @@ const Critique = () => {
 
             {/* Critique content — always visible on desktop, hidden on mobile when chat tab is active */}
             <div className={`${mobileTab === "chat" ? "hidden" : "block"} lg:block`}>
-              <div className="flex items-start justify-between mb-2">
-                <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
-                  Critique
-                </h1>
+              <div className="flex items-start justify-between mb-10">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                    Critique
+                  </p>
+                  <h1 className="font-heading text-4xl md:text-5xl font-semibold text-foreground">
+                    {productName || "Critique"}
+                  </h1>
+                </div>
                 <div className="flex items-center gap-2">
                   <ShareButton teardownId={entryId} />
                   <DownloadButton productName={critiqueTitle} sections={sections} />
                 </div>
               </div>
-              {productName && (
-                <p className="font-mono text-sm text-muted-foreground mb-10">
-                  {productName}
-                </p>
-              )}
-              {!productName && <div className="mb-10" />}
               <SectionDisplay sections={sections} />
               <FeedbackBar teardownId={entryId} />
             </div>
