@@ -528,7 +528,7 @@ ${teardownContext}`;
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-5",
-          max_tokens: 1000,
+          max_tokens: 1500,
           stream: true,
           system: systemPrompt,
           messages,

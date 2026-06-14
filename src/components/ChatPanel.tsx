@@ -50,7 +50,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || isStreaming) return;
     onSend(input.trim());
     setInput("");
   };
@@ -196,7 +196,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
       {/* Desktop: text send button */}
       <button
         type="submit"
-        disabled={!input.trim() || isLoading}
+        disabled={!input.trim() || isLoading || isStreaming}
         className="hidden lg:block"
         style={{
           fontFamily: "'Inter', system-ui, sans-serif",
@@ -218,7 +218,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
       {/* Mobile: pill arrow button */}
       <button
         type="submit"
-        disabled={!input.trim() || isLoading}
+        disabled={!input.trim() || isLoading || isStreaming}
         className="lg:hidden flex items-center justify-center flex-shrink-0"
         style={{
           width: "52px",
