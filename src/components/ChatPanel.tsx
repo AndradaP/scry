@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, isValidElement, cloneElement } from "react";
 import { ArrowUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -121,7 +121,9 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
                 <p className="mb-2">
                   {Array.isArray(children)
                     ? children.flatMap((child, i) =>
-                        typeof child === "string" ? renderWithCitations(child, `${i}-`) : [child]
+                        typeof child === "string"
+                          ? renderWithCitations(child, `${i}-`)
+                          : [isValidElement(child) ? cloneElement(child, { key: `el-${i}` }) : child]
                       )
                     : typeof children === "string"
                     ? renderWithCitations(children)
