@@ -1,9 +1,9 @@
 # Scry — Product Requirements Document
 *(formerly The Shard)*
 
-**Version:** 0.5
-**Last Updated:** May 2026
-**Status:** Phase 2 active — MCP intelligence layer in progress
+**Version:** 0.6
+**Last Updated:** June 2026
+**Status:** Alpha live — pre-Beta, qualitative feedback phase
 
 ---
 
@@ -88,7 +88,14 @@ Both modes include a chat panel docked below the output. The chat:
 
 ---
 
-### Feature 4: Teardown History
+### Feature 4: Teardown Feedback
+After reading a teardown or critique, users can rate quality using a three-option bar: **Not useful / Useful / Excellent**. Feedback is stored per teardown and linked to the user's account. Provides a quality signal for ongoing prompt improvement and helps identify patterns across the corpus.
+
+Per-section rating is tracked as a Phase 3 item.
+
+---
+
+### Feature 5: Teardown History
 - Collapsible left sidebar (like Claude.ai)
 - Filter tabs: All / Generated / Critiques
 - Search by product name
@@ -96,7 +103,7 @@ Both modes include a chat panel docked below the output. The chat:
 
 ---
 
-### Feature 5: Weekly Newsletter *(Phase 3)*
+### Feature 6: Weekly Newsletter *(Phase 3)*
 - Automated weekly digest of one AI-generated teardown based on trending product/tech news
 - Same engine as Feature 1
 - Email delivery + in-app archive
@@ -205,8 +212,8 @@ The existing foundation stays largely intact. Scry deepens rather than replaces 
 
 ### Typography
 - Headings: Cormorant Garamond
-- Section labels: DM Mono, 11px, letter-spacing 0.15em, all-caps, amber-gold
-- Body text: Lora, 16px, line-height 1.75, warm parchment
+- Body text: Inter, 16px, line-height 1.75, warm parchment
+- Section labels: Inter, all-caps, amber-gold (DM Mono was considered; Inter used throughout for consistency)
 - Citations: italic, `#7A7670`, 14px, format: *(Name, Domain)*
 
 ### Wordmark
@@ -251,8 +258,10 @@ Black glass and onyx rather than dark stone. The surface should feel still and f
 - No AI-speak: banned phrases include "In conclusion," "Unlocking potential," "It's worth noting," "Delve into"
 - Friendly but neutral, crisp and authoritative
 - Inline citations: *(Guest Name, Domain)* — italic, muted, 14px
+- Citations must use the full speaker name exactly as it appears in the corpus — no shortened or paraphrased attribution
+- All cited claims must be traceable to a specific excerpt in the injected corpus context — no inference from training knowledge presented as archive content
 - Never cite "Lenny's Podcast" or "Lenny's Newsletter" inline — source established in UI
-- Lenny's Lens: no inline citations, natural prose, Lenny's synthesis voice only
+- Lenny's Lens: no inline citations, natural prose, Lenny's synthesis voice only — draw only from moments where Lenny offers his own synthesis, pattern recognition across guests, personal anecdotes, or direct opinions; exclude facilitation questions and paraphrases of guest turns
 - Topic-locked to product strategy
 
 ---
@@ -265,30 +274,30 @@ Lovable prototype. UI shell, both modes, history sidebar, chat panel, download b
 ### Phase 2 — Active
 
 **Completed:**
-- Supabase auth (real login/signup)
+- Supabase auth (real login/signup, password reset, inline error messages)
 - Auth-aware session state across app
 - Supabase DB persistence (teardowns and history)
 - Claude API via Supabase Edge Function (generate-teardown)
 - Real teardowns and critiques generating
-- Real chat Q&A with teardown context
-- Markdown rendering in chat
+- Real chat Q&A with teardown context, streaming, markdown rendering
+- Chat: mid-stream submission prevention, max_tokens raised to 2000, send button dimmed during streaming
 - LennyData MCP connected — SSE parsing working, pipe-delimited queries
 - Exa web search integrated
 - Two-step query pipeline (Haiku generates queries, Sonnet generates teardown)
+- Query architecture overhaul — tightened grounding constraints, web relevance scoring, training-knowledge verifier
 - PDF extraction in Critique upload
 - Input validation in Critique mode
-- Vercel deployment (live at the-shard-five.vercel.app — domain TBD as Scry)
+- Vercel deployment, SPA routing via vercel.json
 - Rate limiting (5 teardowns/day, 10 chat messages/teardown)
-- Password reset flow
-- Collapsible sections, loading states, usage counter
-
-**Remaining Phase 2 / Pre-Launch:**
-- Fix: usage counter 406 error (RLS/permissions on usage_limits table)
-- Fix: trash icon delete not working in sidebar
-- Fix: login error still showing as alert popup, needs inline message
-- Usage counter — move off header, show on generate/critique page instead
 - Developer bypass — skip rate limiting for owner account
-- Shareable teardowns — public read-only link
+- Collapsible sections, loading states, usage counter (inline on generate/critique pages)
+- Timezone-aware counter reset at user's local midnight
+- Shareable teardowns — public read-only link, no account needed, full Scry aesthetic
+- Teardown feedback bar — Not useful / Useful / Excellent, stored per teardown
+- Scope hint on generate and critique input pages
+- Citation compliance overhaul — full speaker names, bare archive refs, cross-attribution prevention
+- Lenny's Lens isolation — synthesis and direct opinion turns only; facilitation excluded
+- Output page polish — Teardown label on generate page, product name as hero heading on critique page, history sidebar language aligned
 
 ### Phase 3 — Planned
 - Cursor haze effect on hero surfaces
@@ -313,7 +322,7 @@ Lovable prototype. UI shell, both modes, history sidebar, chat panel, download b
 | Auth | Supabase Auth |
 | Database | Supabase Postgres |
 | Vector DB | Supabase pgvector (available, not yet used) |
-| LLM | Anthropic Claude API (claude-sonnet-4-5) |
+| LLM | Anthropic Claude API (claude-sonnet-4-6) |
 | Edge Functions | Supabase Edge Functions (Deno) |
 | Corpus | LennyData MCP |
 | Web search | Exa |
@@ -325,7 +334,7 @@ Lovable prototype. UI shell, both modes, history sidebar, chat panel, download b
 
 ## 10. Open Questions
 
-- Should teardowns be shareable via public read-only link?
+- How far should shareability go? Link sharing is live — what's next: OG previews, social share buttons, attribution handles, pre-filled captions?
 - How to handle products not covered in Lenny's corpus? (reason by analogy, surface a warning?)
 - Should the Master Rubric be visible to users?
 - Newsletter: separate product or integrated?

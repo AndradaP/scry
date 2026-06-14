@@ -38,7 +38,6 @@ Wired everything to real infrastructure. Supabase auth (login, signup, password 
 - [ ] Source bibliography — collect LennyData source URLs, render Sources section at bottom of teardown with links to episodes and newsletters
 
 ### Feedback & Product Loops
-- [ ] Rating and feedback mechanism — thumbs up/down per teardown with optional comment. Stretch: per-section rating so you know which parts land. Needed before broader release to have a signal to act on.
 - [ ] Adversarial self-refinement loop — experiment first by running silent self-critique before output, no UI change. If quality improves, consider "Push Deeper" button as user-triggered second pass. Natural monetization gate. May slip to Phase 3 depending on complexity.
 
 ### UI & Polish
@@ -95,6 +94,13 @@ Wired everything to real infrastructure. Supabase auth (login, signup, password 
 
 ## Completed (full history)
 
+- [x] Teardown feedback bar — Not useful / Useful / Excellent rating stored per teardown. Basic quality signal live before broader release
+- [x] Scope hint on generate and critique input pages — clarifies expected input scope, reduces off-topic submissions
+- [x] Citation compliance overhaul — full speaker names required, bare archive refs only, Lenny's Lens heading corrected, cross-attribution between adjacent excerpts prevented
+- [x] Lenny's Lens speaker isolation — restricted to Lenny's own synthesis, pattern recognition across guests, and direct opinions; facilitation and paraphrase turns excluded
+- [x] Query architecture overhaul — tightened grounding constraints, web relevance scoring, training-knowledge verifier added to cross-check cited claims against injected corpus
+- [x] Chat: mid-stream submission prevention, max_tokens raised to 2000, send button dimmed during streaming
+- [x] Output page polish — Teardown label above product name on generate page, product name promoted to hero heading on critique page, history sidebar language aligned with output page labels
 - [x] Lovable prototype — full UI, both modes, history sidebar, chat panel, download button
 - [x] Cursor dev environment set up — project running locally
 - [x] Supabase project created — auth, Postgres DB, pgvector enabled
