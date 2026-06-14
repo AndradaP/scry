@@ -315,12 +315,23 @@ function verifyTrainingKnowledgeCitations(text: string): string {
   return result;
 }
 
+function stripBareArchiveCitations(text: string): string {
+  // Strip (Lenny's Archive, year) or (Lenny's Archive · anything) with no person name
+  return text.replace(/\s*\(Lenny's Archive[^)]*\)/g, (match) => {
+    // Keep it only if it contains a · preceded by a name (handled by verifyArchiveCitations)
+    if (/·/.test(match)) return match;
+    console.log(`Stripping bare archive citation: ${match.trim()}`);
+    return "";
+  });
+}
+
 function verifyParsedCitations(parsed: Record<string, unknown>, corpus: string): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed)) {
     if (typeof value === "string") {
       let v = verifyArchiveCitations(value, corpus);
       v = verifyTrainingKnowledgeCitations(v);
+      v = stripBareArchiveCitations(v);
       result[key] = v;
     } else {
       result[key] = value;
@@ -353,7 +364,7 @@ ${teardownContext}
 ${corpusBlock}
 
 RULES:
-- Do not include a title, heading, or label of any kind. The very first character of your response must be the start of the content itself.
+- Do not include a title, heading, or label of any kind. The very first character of your response must be the start of the content itself. If your response begins with #, *, or any markdown syntax, that is a violation — start directly with a word.
 - Do not mention any person by name — no guest names, no expert names, no one. Do not use inline citations of any kind.
 - Do not draw comparisons to other companies by name. The section is about ${productName} specifically, not about what Atlassian or HubSpot or anyone else did.
 - Ground every observation in something visible in the archive or the product analysis above. Do not import outside knowledge.
@@ -665,7 +676,7 @@ ${teardownContext}`;
 2. CURRENT WEB CONTEXT — use for current facts, recent developments, and anything time-sensitive.
 
 CITATION FORMAT — apply to every section:
-- Archive: (Name, Role · Lenny's Archive) — every person you name must have this badge in the same sentence. The person's name always comes first — never lead with the outlet, source, or product name. Only cite an archive guest when the retrieved excerpt explicitly and directly supports the specific claim — do not attribute a framework by name based on general expertise. Only attribute a concept to the person who explicitly originated it in the excerpt — do not attribute ideas to other people merely mentioned nearby. Cite at most 3 archive sources per section.
+- Archive: (Full Name, Role · Lenny's Archive) — use the person's full first and last name, always. Never use last name only. The person's full name always comes first — never lead with the outlet, source, or product name. Never write a bare (Lenny's Archive, year) reference without a person's full name. Only cite an archive guest when the retrieved excerpt explicitly and directly supports the specific claim — do not attribute a framework by name based on general expertise. Only attribute a concept to the person who explicitly originated it in the excerpt — do not attribute ideas to other people merely mentioned nearby. Cite at most 3 archive sources per section.
 - Web: (Outlet, Month Year) — outlet name only, never an individual's name. Only cite a web source if it directly covers ${productName ?? "this product"}. Do not cite web sources whose primary subject is a different company, product, or industry.
 - Training knowledge: welcome for analysis and frameworks. Never attach a person's name to it.
 - Do not present case studies from the archive about other companies as if they happened to the product you are analyzing.
@@ -750,12 +761,14 @@ ${digitalProductsConstraint}`;
       parsed.overall_assessment,
     ].filter(Boolean).join("\n\n");
 
-    parsed.lennys_lens = await generateLennysLens(
+    let lennysLens = await generateLennysLens(
       productName ?? "",
       mode,
       lennyCorpus,
       lensContext,
     );
+    lennysLens = lennysLens.replace(/^#[^\n]*\n+/, "").trim();
+    parsed.lennys_lens = lennysLens;
 
     if (userId && !isDevUser) {
       await supabase.rpc("increment_usage", { p_user_id: userId, p_date: today });
