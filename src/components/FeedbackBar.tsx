@@ -27,17 +27,20 @@ export const FeedbackBar = ({ teardownId }: FeedbackBarProps) => {
   }, [teardownId]);
 
   const handleSelect = async (rating: number) => {
-    if (saving) return;
+    if (saving || !teardownId) return;
     setSaving(true);
     setSelected(rating);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase
+      const { error } = await supabase
         .from("teardown_feedback")
         .upsert(
           { teardown_id: teardownId, user_id: user.id, rating },
           { onConflict: "teardown_id,user_id" }
         );
+      if (error) console.error("[FeedbackBar] upsert failed:", error.code, error.message, error.details);
+    } else {
+      console.warn("[FeedbackBar] no authenticated user");
     }
     setSaving(false);
   };

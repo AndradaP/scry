@@ -47,6 +47,7 @@ const Generate = () => {
   const [chatStreaming, setChatStreaming] = useState(false);
   const [mobileTab, setMobileTab] = useState<"teardown" | "chat">("teardown");
   const [entryId, setEntryId] = useState<string>("");
+  const [entrySaved, setEntrySaved] = useState(false);
   const [usageCount, setUsageCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -79,6 +80,7 @@ const Generate = () => {
           setTeardown(sectionMap);
           setChatMessages(entry.chatMessages);
           setEntryId(entry.id);
+          setEntrySaved(true);
         }
       };
       load();
@@ -122,6 +124,7 @@ const Generate = () => {
         sections,
         chatMessages: [],
       });
+      setEntrySaved(true);
     } catch (error) {
       console.error("Error generating teardown:", error);
       setIsLoading(false);
@@ -343,7 +346,7 @@ const Generate = () => {
                 </div>
               </div>
               <SectionDisplay sections={sections} />
-              <FeedbackBar teardownId={entryId} />
+              {entrySaved && <FeedbackBar teardownId={entryId} />}
             </div>
 
             {/* Mobile chat tab — only shown on mobile when chat tab is active */}
