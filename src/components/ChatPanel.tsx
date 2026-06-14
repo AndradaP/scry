@@ -207,7 +207,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           border: "none",
           cursor: "pointer",
           padding: "8px 0",
-          opacity: !input.trim() || isLoading ? 0.3 : 1,
+          opacity: !input.trim() || isLoading || isStreaming ? 0.3 : 1,
           transition: "opacity 0.15s",
           borderRadius: 0,
           flexShrink: 0,
@@ -224,9 +224,9 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           width: "52px",
           height: "36px",
           borderRadius: "18px",
-          background: input.trim() && !isLoading ? "#D4A843" : "#2E2C28",
-          border: `1px solid ${input.trim() && !isLoading ? "#D4A843" : "#3E3C38"}`,
-          cursor: input.trim() && !isLoading ? "pointer" : "default",
+          background: input.trim() && !isLoading && !isStreaming ? "#D4A843" : "#2E2C28",
+          border: `1px solid ${input.trim() && !isLoading && !isStreaming ? "#D4A843" : "#3E3C38"}`,
+          cursor: input.trim() && !isLoading && !isStreaming ? "pointer" : "default",
           transition: "background 0.15s, border-color 0.15s",
           padding: 0,
         }}
@@ -235,7 +235,7 @@ const ChatPanel = ({ messages, onSend, isLoading, isStreaming, variant }: ChatPa
           style={{
             width: "16px",
             height: "16px",
-            color: input.trim() && !isLoading ? "#1A1815" : "#7A7670",
+            color: input.trim() && !isLoading && !isStreaming ? "#1A1815" : "#7A7670",
           }}
         />
       </button>
