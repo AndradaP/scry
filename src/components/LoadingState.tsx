@@ -29,6 +29,20 @@ const LoadingState = ({ messages }: LoadingStateProps) => {
       <p className="font-body text-sm text-muted-foreground text-center transition-opacity duration-300">
         {messages[currentIndex]}
       </p>
+      <p
+        style={{
+          fontFamily: "'DM Mono', 'Courier New', monospace",
+          fontSize: "11px",
+          color: "#8A857E",
+          letterSpacing: "0.05em",
+          textAlign: "center",
+          marginTop: "16px",
+          maxWidth: "480px",
+          margin: "16px auto 0",
+        }}
+      >
+        /skraɪ/ — verb<br />to uncover hidden knowledge by gazing into a reflective surface
+      </p>
       <style>{`
         @keyframes loading-bar {
           0% { transform: translateX(-100%); }

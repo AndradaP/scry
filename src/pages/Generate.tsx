@@ -23,9 +23,9 @@ const GENERATE_SECTIONS = [
 ];
 
 const LOADING_MESSAGES = [
-  "Analyzing product strategy...",
   "Summoning Lenny's council...",
-  "Reviewing growth model...",
+  "Analyzing product strategy...",
+  "Gathering signals...",
   "Applying frameworks...",
   "Forging your teardown...",
 ];
