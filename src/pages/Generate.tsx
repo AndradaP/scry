@@ -51,6 +51,7 @@ const Generate = () => {
   const [entrySaved, setEntrySaved] = useState(false);
   const [usageCount, setUsageCount] = useState<number | null>(null);
   const [entryNotFound, setEntryNotFound] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -95,6 +96,7 @@ const Generate = () => {
   const handleGenerate = async () => {
     if (!productName.trim()) return;
     setIsLoading(true);
+    setGenerateError(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -132,6 +134,7 @@ const Generate = () => {
       setEntrySaved(true);
     } catch (error) {
       console.error("Error generating teardown:", error);
+      setGenerateError("Something went wrong. Please try again.");
       setIsLoading(false);
     }
   };
@@ -293,6 +296,11 @@ const Generate = () => {
             <p className="mt-2 font-mono text-xs text-muted-foreground/40">
               Works best for software products, apps, and SaaS
             </p>
+            {generateError && (
+              <p className="mt-4 font-mono text-xs" style={{ color: "hsl(var(--destructive))" }}>
+                {generateError}
+              </p>
+            )}
             <button
               onClick={handleGenerate}
               disabled={!productName.trim()}
