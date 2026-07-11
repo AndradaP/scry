@@ -12,6 +12,7 @@ import { ArrowRight } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
 import { FeedbackBar } from "@/components/FeedbackBar";
 import { supabase } from "@/lib/supabase";
+import { logClientError } from "@/lib/errorLogger";
 
 const GENERATE_SECTIONS = [
   { key: "product_overview", label: "Product Overview" },
@@ -263,7 +264,7 @@ const Generate = () => {
 
   return (
     <AppLayout rightPanel={chatDrawer}>
-      <ErrorBoundary>
+      <ErrorBoundary onError={(error, info) => logClientError(error.message, error.stack + "\n\nComponent stack:" + info.componentStack)}>
       <div className="w-full max-w-[860px] mx-auto px-6 py-12">
         {entryNotFound && (
           <div className="py-16">
