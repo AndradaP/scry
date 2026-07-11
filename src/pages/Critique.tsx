@@ -79,6 +79,7 @@ const Critique = () => {
   const [entryId, setEntryId] = useState<string>("");
   const [entrySaved, setEntrySaved] = useState(false);
   const [usageCount, setUsageCount] = useState<number | null>(null);
+  const [entryNotFound, setEntryNotFound] = useState(false);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -100,21 +101,24 @@ const Critique = () => {
   }, []);
 
   useEffect(() => {
-    if (id) {
-      const load = async () => {
-        const entry = await getEntry(id);
-        if (entry) {
-          setProductName(entry.product_name);
-          const sectionMap: Record<string, string> = {};
-          entry.sections.forEach((s) => { sectionMap[s.key] = s.content; });
-          setCritique(sectionMap);
-          setChatMessages(entry.chatMessages);
-          setEntryId(entry.id);
-          setEntrySaved(true);
-        }
-      };
-      load();
-    }
+    if (!id) return;
+    setEntryNotFound(false);
+    const load = async () => {
+      await supabase.auth.getSession();
+      const entry = await getEntry(id);
+      if (entry) {
+        setProductName(entry.product_name);
+        const sectionMap: Record<string, string> = {};
+        entry.sections.forEach((s) => { sectionMap[s.key] = s.content; });
+        setCritique(sectionMap);
+        setChatMessages(entry.chatMessages);
+        setEntryId(entry.id);
+        setEntrySaved(true);
+      } else {
+        setEntryNotFound(true);
+      }
+    };
+    load();
   }, [id]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -370,7 +374,15 @@ const Critique = () => {
     <AppLayout rightPanel={chatDrawer}>
       <ErrorBoundary>
       <div className="w-full max-w-[860px] mx-auto px-6 py-12">
-        {!critique && !isLoading && (
+        {entryNotFound && (
+          <div className="py-16">
+            <p className="font-body text-sm text-muted-foreground">
+              This critique wasn't found or you don't have access to it.
+            </p>
+          </div>
+        )}
+
+        {!critique && !isLoading && !entryNotFound && (
           <div className="py-8">
             <div className="flex gap-6 mb-8 border-b border-border">
               <button
