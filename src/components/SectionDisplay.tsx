@@ -14,7 +14,9 @@ interface SectionDisplayProps {
 
 const CITATION_REGEX = /\(([^)]+?,\s*[^)]+?)\)/g;
 
-const renderContentWithCitations = (content: string, isLennysLens: boolean) => {
+const renderContentWithCitations = (content: string | null | undefined, isLennysLens: boolean) => {
+  if (!content) return null;
+
   if (isLennysLens) {
     return <span>{content}</span>;
   }
@@ -40,6 +42,8 @@ const renderContentWithCitations = (content: string, isLennysLens: boolean) => {
 const SectionItem = ({ section, index }: { section: Section; index: number }) => {
   const [isOpen, setIsOpen] = useState(true);
   const isLennysLens = section.key === "lennys_lens";
+
+  if (!section.content) return null;
 
   return (
     <motion.div

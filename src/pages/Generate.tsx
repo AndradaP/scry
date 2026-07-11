@@ -7,10 +7,12 @@ import ChatDrawer from "@/components/ChatDrawer";
 import LoadingState from "@/components/LoadingState";
 import DownloadButton from "@/components/DownloadButton";
 import ShareButton from "@/components/ShareButton";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { ArrowRight } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
 import { FeedbackBar } from "@/components/FeedbackBar";
 import { supabase } from "@/lib/supabase";
+import { logClientError } from "@/lib/errorLogger";
 
 const GENERATE_SECTIONS = [
   { key: "product_overview", label: "Product Overview" },
@@ -49,6 +51,8 @@ const Generate = () => {
   const [entryId, setEntryId] = useState<string>("");
   const [entrySaved, setEntrySaved] = useState(false);
   const [usageCount, setUsageCount] = useState<number | null>(null);
+  const [entryNotFound, setEntryNotFound] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -70,26 +74,30 @@ const Generate = () => {
   }, []);
 
   useEffect(() => {
-    if (id) {
-      const load = async () => {
-        const entry = await getEntry(id);
-        if (entry) {
-          setProductName(entry.product_name);
-          const sectionMap: Record<string, string> = {};
-          entry.sections.forEach((s) => { sectionMap[s.key] = s.content; });
-          setTeardown(sectionMap);
-          setChatMessages(entry.chatMessages);
-          setEntryId(entry.id);
-          setEntrySaved(true);
-        }
-      };
-      load();
-    }
+    if (!id) return;
+    setEntryNotFound(false);
+    const load = async () => {
+      await supabase.auth.getSession();
+      const entry = await getEntry(id);
+      if (entry) {
+        setProductName(entry.product_name);
+        const sectionMap: Record<string, string> = {};
+        entry.sections.forEach((s) => { sectionMap[s.key] = s.content; });
+        setTeardown(sectionMap);
+        setChatMessages(entry.chatMessages);
+        setEntryId(entry.id);
+        setEntrySaved(true);
+      } else {
+        setEntryNotFound(true);
+      }
+    };
+    load();
   }, [id]);
 
   const handleGenerate = async () => {
     if (!productName.trim()) return;
     setIsLoading(true);
+    setGenerateError(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -127,6 +135,7 @@ const Generate = () => {
       setEntrySaved(true);
     } catch (error) {
       console.error("Error generating teardown:", error);
+      setGenerateError("Something went wrong. Please try again.");
       setIsLoading(false);
     }
   };
@@ -255,8 +264,17 @@ const Generate = () => {
 
   return (
     <AppLayout rightPanel={chatDrawer}>
+      <ErrorBoundary onError={(error, info) => logClientError(error.message, error.stack + "\n\nComponent stack:" + info.componentStack)}>
       <div className="w-full max-w-[860px] mx-auto px-6 py-12">
-        {!teardown && !isLoading && (
+        {entryNotFound && (
+          <div className="py-16">
+            <p className="font-body text-sm text-muted-foreground">
+              This teardown wasn't found or you don't have access to it.
+            </p>
+          </div>
+        )}
+
+        {!teardown && !isLoading && !entryNotFound && (
           <div className="py-16">
             <div className="flex items-center justify-between mb-6">
               <label className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">
@@ -279,6 +297,11 @@ const Generate = () => {
             <p className="mt-2 font-mono text-xs text-muted-foreground/40">
               Works best for software products, apps, and SaaS
             </p>
+            {generateError && (
+              <p className="mt-4 font-mono text-xs" style={{ color: "hsl(var(--destructive))" }}>
+                {generateError}
+              </p>
+            )}
             <button
               onClick={handleGenerate}
               disabled={!productName.trim()}
@@ -365,6 +388,7 @@ const Generate = () => {
           </div>
         )}
       </div>
+      </ErrorBoundary>
     </AppLayout>
   );
 };

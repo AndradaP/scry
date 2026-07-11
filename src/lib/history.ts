@@ -27,11 +27,23 @@ export const getHistory = async (): Promise<HistoryEntry[]> => {
   }));
 };
 
+const repairSections = (
+  sections: HistoryEntry["sections"],
+): HistoryEntry["sections"] =>
+  sections.map((s) => ({
+    ...s,
+    content: typeof s.content === "string" ? s.content : "",
+  }));
+
 export const saveEntry = async (entry: HistoryEntry): Promise<void> => {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (!user) {
     return;
   }
+
+  const sections = Array.isArray(entry.sections)
+    ? repairSections(entry.sections)
+    : [];
 
   await supabase
     .from("teardowns")
@@ -41,7 +53,7 @@ export const saveEntry = async (entry: HistoryEntry): Promise<void> => {
       mode: entry.mode,
       product_name: entry.product_name,
       output: {
-        sections: entry.sections,
+        sections,
         chatMessages: entry.chatMessages,
       },
       created_at: entry.created_at,

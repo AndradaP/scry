@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import AppLayout from "@/components/AppLayout";
+import AuthLayout from "@/components/AuthLayout";
 import { supabase } from "@/lib/supabase";
 
 const Login = () => {
@@ -11,6 +11,10 @@ const Login = () => {
   const [forgotStatus, setForgotStatus] = useState<"idle" | "sent" | "error">("idle");
   const [forgotError, setForgotError] = useState("");
   const [loginError, setLoginError] = useState("");
+
+  useEffect(() => {
+    supabase.auth.signOut();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +43,7 @@ const Login = () => {
 
   if (view === "forgot") {
     return (
-      <AppLayout>
+      <AuthLayout>
         <div className="flex flex-col items-center justify-center px-6 py-24">
           <form onSubmit={handleForgot} className="w-full max-w-sm space-y-6">
             <h1 className="font-heading text-3xl font-semibold text-foreground text-center mb-8">Reset password</h1>
@@ -73,12 +77,12 @@ const Login = () => {
             </p>
           </form>
         </div>
-      </AppLayout>
+      </AuthLayout>
     );
   }
 
   return (
-    <AppLayout>
+    <AuthLayout>
       <div className="flex flex-col items-center justify-center px-6 py-24">
         <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6">
           <h1 className="font-heading text-3xl font-semibold text-foreground text-center mb-8">Sign in</h1>
@@ -103,7 +107,7 @@ const Login = () => {
           </p>
         </form>
       </div>
-    </AppLayout>
+    </AuthLayout>
   );
 };
 
