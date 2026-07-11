@@ -9,18 +9,29 @@ interface TeardownData {
   sections: { key: string; label: string; content: string }[];
 }
 
+const TIMEOUT_MS = 10_000;
+
 const PublicTeardownView = () => {
   const { id } = useParams<{ id: string }>();
   const [teardown, setTeardown] = useState<TeardownData | null>(null);
-  const [status, setStatus] = useState<"loading" | "found" | "not-found">("loading");
+  const [status, setStatus] = useState<"loading" | "found" | "not-found" | "timeout">("loading");
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    if (!id) return;
+
+    setStatus("loading");
+
+    const timer = setTimeout(() => setStatus("timeout"), TIMEOUT_MS);
+
     const fetchTeardown = async () => {
       const { data, error } = await supabase
         .from("teardowns")
         .select("product_name, mode, output, is_public")
         .eq("id", id)
         .single();
+
+      clearTimeout(timer);
 
       if (error || !data || !data.is_public) {
         setStatus("not-found");
@@ -35,11 +46,112 @@ const PublicTeardownView = () => {
       setStatus("found");
     };
 
-    if (id) fetchTeardown();
-  }, [id]);
+    fetchTeardown();
+
+    return () => clearTimeout(timer);
+  }, [id, retryKey]);
 
   if (status === "loading") {
-    return <div style={{ background: "#0A0A08", minHeight: "100dvh" }} />;
+    return (
+      <div
+        style={{
+          background: "#0A0A08",
+          minHeight: "100dvh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "20px",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "'Cormorant Garamond', Georgia, serif",
+            fontSize: "26px",
+            fontWeight: 600,
+            color: "#D4A843",
+          }}
+        >
+          Scry
+        </span>
+        <div
+          style={{
+            width: "100px",
+            height: "1px",
+            background: "rgba(212,168,67,0.18)",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "#D4A843",
+              animation: "scry-slide 1.4s ease-in-out infinite",
+            }}
+          />
+        </div>
+        <p
+          style={{
+            fontFamily: "'Inter', system-ui, sans-serif",
+            fontSize: "12px",
+            color: "#7A7670",
+            letterSpacing: "0.06em",
+          }}
+        >
+          Loading teardown…
+        </p>
+        <style>{`
+          @keyframes scry-slide {
+            0%   { transform: translateX(-100%); }
+            50%  { transform: translateX(0%);    }
+            100% { transform: translateX(100%);  }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (status === "timeout") {
+    return (
+      <div
+        style={{
+          background: "#0A0A08",
+          minHeight: "100dvh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "16px",
+        }}
+      >
+        <p
+          style={{
+            fontFamily: "'Inter', system-ui, sans-serif",
+            fontSize: "14px",
+            color: "#7A7670",
+          }}
+        >
+          This is taking longer than expected.
+        </p>
+        <button
+          onClick={() => setRetryKey((k) => k + 1)}
+          style={{
+            fontFamily: "'Inter', system-ui, sans-serif",
+            fontSize: "13px",
+            color: "#D4A843",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            textDecoration: "underline",
+            padding: 0,
+          }}
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   if (status === "not-found") {
