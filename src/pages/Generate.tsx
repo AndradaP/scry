@@ -7,6 +7,7 @@ import ChatDrawer from "@/components/ChatDrawer";
 import LoadingState from "@/components/LoadingState";
 import DownloadButton from "@/components/DownloadButton";
 import ShareButton from "@/components/ShareButton";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { ArrowRight } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
 import { FeedbackBar } from "@/components/FeedbackBar";
@@ -255,6 +256,7 @@ const Generate = () => {
 
   return (
     <AppLayout rightPanel={chatDrawer}>
+      <ErrorBoundary>
       <div className="w-full max-w-[860px] mx-auto px-6 py-12">
         {!teardown && !isLoading && (
           <div className="py-16">
@@ -365,6 +367,7 @@ const Generate = () => {
           </div>
         )}
       </div>
+      </ErrorBoundary>
     </AppLayout>
   );
 };

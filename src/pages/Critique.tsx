@@ -7,6 +7,7 @@ import ChatDrawer from "@/components/ChatDrawer";
 import LoadingState from "@/components/LoadingState";
 import DownloadButton from "@/components/DownloadButton";
 import ShareButton from "@/components/ShareButton";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { ArrowRight, Upload } from "lucide-react";
 import { saveEntry, getEntry } from "@/lib/history";
 import { FeedbackBar } from "@/components/FeedbackBar";
@@ -367,6 +368,7 @@ const Critique = () => {
 
   return (
     <AppLayout rightPanel={chatDrawer}>
+      <ErrorBoundary>
       <div className="w-full max-w-[860px] mx-auto px-6 py-12">
         {!critique && !isLoading && (
           <div className="py-8">
@@ -531,6 +533,7 @@ const Critique = () => {
           </div>
         )}
       </div>
+      </ErrorBoundary>
     </AppLayout>
   );
 };
