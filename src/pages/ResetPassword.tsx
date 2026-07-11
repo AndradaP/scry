@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import AppLayout from "@/components/AppLayout";
+import AuthLayout from "@/components/AuthLayout";
 import { supabase } from "@/lib/supabase";
 
 const ResetPassword = () => {
@@ -35,7 +35,7 @@ const ResetPassword = () => {
   };
 
   return (
-    <AppLayout>
+    <AuthLayout>
       <div className="flex flex-col items-center justify-center px-6 py-24">
         <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6">
           <h1 className="font-heading text-3xl font-semibold text-foreground text-center mb-8">New password</h1>
@@ -78,7 +78,7 @@ const ResetPassword = () => {
           )}
         </form>
       </div>
-    </AppLayout>
+    </AuthLayout>
   );
 };
 
