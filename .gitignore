@@ -23,4 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
+.env
 .env.local
+.env.*.local
+
+# Lenny's Data archive export — synced into the DB by scripts/sync-lenny-corpus.mjs,
+# never committed (their ToS is personal-use-only).
+/data/lenny-corpus/
+*.lenny-archive.zip

@@ -167,69 +167,52 @@ ${userTeardown}`;
 }
 
 
-async function searchLennyData(query: string, limit = 5, contentType = ""): Promise<string> {
-  const token = Deno.env.get("LENNYSDATA_TOKEN") ?? "";
-
-  const response = await fetch("https://mcp.lennysdata.com/mcp", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json, text/event-stream",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: Date.now(),
-      method: "tools/call",
-      params: {
-        name: "search_content",
-        arguments: { query, limit, content_type: contentType },
-      },
-    }),
+// Full-text search over the local Lenny corpus mirror (public.lenny_corpus),
+// through the search_lenny_corpus() RPC. Returns SOURCE-delimited excerpt blocks
+// in the same shape the retired LennyData MCP produced, or "" when nothing hits.
+// The corpus is refreshed from the ZIP export by scripts/sync-lenny-corpus.mjs.
+//
+// `query` is a pipe-delimited keyword string (e.g. "pricing|monetization|tier");
+// `contentType` is "podcast" | "newsletter" | "" (no filter).
+// diag, when passed, is filled in as a side effect for eval instrumentation only.
+async function searchLennyData(
+  query: string,
+  limit = 5,
+  contentType = "",
+  diag?: Record<string, unknown>,
+): Promise<string> {
+  const { data, error } = await supabase.rpc("search_lenny_corpus", {
+    q: query,
+    match_limit: limit,
+    filter_type: contentType,
   });
 
-  console.log(`LennyData [${query}] status:`, response.status);
-
-  const text = await response.text();
-
-  const dataLines = text
-    .split("\n")
-    .filter(line => line.startsWith("data: "))
-    .map(line => line.slice(6).trim())
-    .filter(line => line && line !== "[DONE]");
-
-  if (!dataLines.length) return "";
-
-  for (const line of dataLines) {
-    try {
-      const parsed = JSON.parse(line);
-      const results = parsed?.result?.content?.[0]?.text;
-      if (!results) continue;
-
-      const searchResults = JSON.parse(results);
-      if (!searchResults.results?.length) {
-        console.log(`LennyData [${query}]: 0 results`);
-        continue;
-      }
-
-      console.log(`LennyData [${query}]: ${searchResults.results.length} results`);
-
-      return searchResults.results.map((r: {
-        title: string;
-        type: string;
-        date: string;
-        snippet: string;
-        snippets?: { text: string }[];
-      }) => {
-        const excerpts = r.snippets?.map((s) => s.text).join("\n") ?? r.snippet;
-        return `SOURCE: ${r.title} (${r.type}, ${r.date})\n${excerpts}`;
-      }).join("\n\n---\n\n");
-    } catch {
-      continue;
-    }
+  if (diag) {
+    diag.rpc_error = error?.message ?? null;
+    diag.parsed_result_count = Array.isArray(data) ? data.length : 0;
   }
 
-  return "";
+  if (error) {
+    console.error(`lenny_corpus [${query}] error:`, error.message);
+    return "";
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    console.log(`lenny_corpus [${query}]: 0 results`);
+    return "";
+  }
+
+  console.log(`lenny_corpus [${query}]: ${data.length} results`);
+
+  return (data as {
+    title: string;
+    content_type: string;
+    published_date: string | null;
+    headline: string;
+  }[])
+    .map((r) =>
+      `SOURCE: ${r.title} (${r.content_type}, ${r.published_date ?? "n.d."})\n${r.headline}`
+    )
+    .join("\n\n---\n\n");
 }
 
 function isVerifiedInCorpus(name: string, corpus: string): boolean {
@@ -323,6 +306,23 @@ function stripBareArchiveCitations(text: string): string {
     console.log(`Stripping bare archive citation: ${match.trim()}`);
     return "";
   });
+}
+
+// Eval-only observation: counts archive-format citations `(Name, Role · Lenny's
+// Archive)` across all string fields. Read-only — does not affect verifyArchiveCitations
+// or any scrubbing behavior. Called before and after verifyParsedCitations to answer
+// "how many citations did the scrubber remove" without guessing about regex behavior.
+function countArchiveCitations(parsed: Record<string, unknown>): number {
+  const blockRegex = /\(([^)]+·\s*Lenny's Archive[^)]*)\)/g;
+  let count = 0;
+  for (const value of Object.values(parsed)) {
+    if (typeof value !== "string") continue;
+    let match;
+    while ((match = blockRegex.exec(value)) !== null) {
+      count += match[1].split(";").length;
+    }
+  }
+  return count;
 }
 
 function verifyParsedCitations(parsed: Record<string, unknown>, corpus: string): Record<string, unknown> {
@@ -484,10 +484,13 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId, timezone } = body;
+    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId, timezone, debug } = body;
 
     const { userId, userEmail } = getUserFromJwt(req.headers.get("Authorization"));
     const isDevUser = userEmail === DEV_EMAIL;
+    // Eval-only instrumentation (corpus retrieval + citation scrub counts). Gated to the
+    // dev-bypass user so ordinary product traffic never carries this extra payload.
+    const includeDebug = debug === true && isDevUser;
     const tz = getTimezoneAbbr(typeof timezone === "string" ? timezone : undefined);
     const today = getLocalDate(typeof timezone === "string" ? timezone : "UTC");
 
@@ -652,14 +655,33 @@ ${teardownContext}`;
     const webQuery = `${productName} product strategy 2026`;
 
     const allLennyQueries = [productName ?? "", ...searchQueries];
+    // diags[i] is filled in as a side effect of the matching searchLennyData call
+    // when includeDebug is on; it never alters the request or the returned string.
+    const lennyDiags: Record<string, unknown>[] = allLennyQueries.map(() => ({}));
     const [lennyResults, webSearchResult] = await Promise.all([
-      Promise.all(allLennyQueries.map(q => searchLennyData(q, 5))),
+      Promise.all(allLennyQueries.map((q, i) => searchLennyData(q, 5, "", includeDebug ? lennyDiags[i] : undefined))),
       searchWeb(webQuery),
     ]);
 
     const lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
     console.log("Lenny corpus length:", lennyCorpus.length);
     console.log("Web context length:", webSearchResult.text.length);
+
+    // Eval-only diagnostics: per-query retrieval size/counts plus the RPC error
+    // (if any), so a zero-result run can be told apart from a query bug without
+    // needing edge function logs.
+    let corpusRetrieval: Record<string, unknown> | undefined;
+    if (includeDebug) {
+      corpusRetrieval = Object.fromEntries(allLennyQueries.map((q, i) => {
+        const result = lennyResults[i] ?? "";
+        return [`query_${i + 1}`, {
+          query: q,
+          result_chars: result.length,
+          result_count: result ? (result.match(/^SOURCE: /gm) ?? []).length : 0,
+          ...lennyDiags[i],
+        }];
+      }));
+    }
 
     const lennySection = lennyCorpus.length > 0
       ? `LENNY'S ARCHIVE — FRAMEWORKS & PHILOSOPHY:\n${lennyCorpus}`
@@ -752,7 +774,9 @@ ${digitalProductsConstraint}`;
     }
 
     // ── Verify archive citations across all sections ──────────────────────────
+    const citationsWritten = includeDebug ? countArchiveCitations(parsed) : undefined;
     parsed = verifyParsedCitations(parsed, lennyCorpus);
+    const citationsSurvived = includeDebug ? countArchiveCitations(parsed) : undefined;
 
     // ── Lenny's Lens: sequential, informed by main teardown output ────────────
     const lensContext = [
@@ -772,6 +796,13 @@ ${digitalProductsConstraint}`;
 
     if (userId && !isDevUser) {
       await supabase.rpc("increment_usage", { p_user_id: userId, p_date: today });
+    }
+
+    if (includeDebug) {
+      parsed._eval_debug = {
+        corpus_retrieval: corpusRetrieval,
+        archive_citations: { written: citationsWritten, survived: citationsSurvived },
+      };
     }
 
     return new Response(JSON.stringify(parsed), {

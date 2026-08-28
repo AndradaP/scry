@@ -46,6 +46,7 @@ Wired everything to real infrastructure. Supabase auth (login, signup, password 
 - [ ] Chat panel width tuning — 340px is starting point, revisit after real usage data
 
 ### Infrastructure
+- [ ] **Security: `generate-teardown` trusts unverified JWTs** — `getUserFromJwt` only base64-decodes the token payload, it never verifies the signature. Any 3-part token with an arbitrary `email`/`sub` claim is accepted (this is exactly what the eval script's dev-bypass JWT relies on, see `scripts/eval/run-eval.mjs`). Need to check whether the function trusts the token's claimed `user_id` for writes or rate-limit checks without confirming it came from a real Supabase session — if so, anyone can forge a token to write as another user or dodge rate limits. Must fix (verify signature against Supabase's JWT secret/JWKS, or drop `verify_jwt = false` in `supabase/config.toml` for this function) before any wider beta release. Flagged during eval work on 2026-08-23, not fixed yet — do not treat as resolved.
 - [ ] Code quality pass — separate agent reviews Edge Functions, prompt logic, RLS policies, rate limiting edge cases
 - [ ] Google OAuth — nice-to-have, non-blocking
 - [ ] Custom domain — currently the-shard-five.vercel.app
@@ -71,7 +72,8 @@ Wired everything to real infrastructure. Supabase auth (login, signup, password 
 - [ ] Configurable teardown depth — user-selectable
 - [ ] Master Rubric visibility — consider whether to expose to users
 - [ ] Smart scope narrowing — post-generation, surface 2-3 drill-down angles using Exa results in parallel
-- [ ] Custom RAG pipeline — contingency only, build if LennyData MCP becomes insufficient
+- [x] Local corpus mirror — archive synced from the ZIP export into `public.lenny_corpus`, searched via `search_lenny_corpus()` FTS RPC. Kills the expiring-MCP-token dependency; `generate-teardown` no longer calls `mcp.lennysdata.com`. Refresh runbook: `scripts/sync-lenny-corpus.md`. Quarterly manual sync.
+- [ ] Semantic retrieval — add an `embedding vector` column to `lenny_corpus` and rank by similarity; fast-follow to the FTS-only search, once FTS quality is judged on real teardowns
 - [ ] Knowledge Graph layer — nodes: experts, frameworks, companies; edges: relationships
 
 ### Product
