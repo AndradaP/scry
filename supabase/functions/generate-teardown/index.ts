@@ -167,7 +167,14 @@ ${userTeardown}`;
 }
 
 
-async function searchLennyData(query: string, limit = 5, contentType = ""): Promise<string> {
+// diag, when passed, is filled in as a side effect for eval instrumentation only.
+// It never changes the request sent or the string returned — purely observational.
+async function searchLennyData(
+  query: string,
+  limit = 5,
+  contentType = "",
+  diag?: Record<string, unknown>,
+): Promise<string> {
   const token = Deno.env.get("LENNYSDATA_TOKEN") ?? "";
 
   const response = await fetch("https://mcp.lennysdata.com/mcp", {
@@ -192,11 +199,18 @@ async function searchLennyData(query: string, limit = 5, contentType = ""): Prom
 
   const text = await response.text();
 
+  if (diag) {
+    diag.http_status = response.status;
+    diag.raw_response_preview = text.slice(0, 2000);
+  }
+
   const dataLines = text
     .split("\n")
     .filter(line => line.startsWith("data: "))
     .map(line => line.slice(6).trim())
     .filter(line => line && line !== "[DONE]");
+
+  if (diag) diag.data_lines_count = dataLines.length;
 
   if (!dataLines.length) return "";
 
@@ -204,9 +218,13 @@ async function searchLennyData(query: string, limit = 5, contentType = ""): Prom
     try {
       const parsed = JSON.parse(line);
       const results = parsed?.result?.content?.[0]?.text;
-      if (!results) continue;
+      if (!results) {
+        if (diag) diag.no_result_text_in_line = parsed;
+        continue;
+      }
 
       const searchResults = JSON.parse(results);
+      if (diag) diag.parsed_result_count = searchResults.results?.length ?? 0;
       if (!searchResults.results?.length) {
         console.log(`LennyData [${query}]: 0 results`);
         continue;
@@ -224,12 +242,71 @@ async function searchLennyData(query: string, limit = 5, contentType = ""): Prom
         const excerpts = r.snippets?.map((s) => s.text).join("\n") ?? r.snippet;
         return `SOURCE: ${r.title} (${r.type}, ${r.date})\n${excerpts}`;
       }).join("\n\n---\n\n");
-    } catch {
+    } catch (e) {
+      if (diag) diag.parse_error = String(e);
       continue;
     }
   }
 
   return "";
+}
+
+// Eval-only diagnostic probe: identical call to searchLennyData but with
+// content_type omitted from the arguments entirely, to test whether sending an
+// empty string for content_type (the production default) causes the MCP tool to
+// filter to zero results. Never called outside includeDebug; does not feed into
+// lennyCorpus or any pipeline output.
+async function probeLennyDataNoContentTypeFilter(query: string, limit = 5): Promise<Record<string, unknown>> {
+  const token = Deno.env.get("LENNYSDATA_TOKEN") ?? "";
+  const diag: Record<string, unknown> = { query, variant: "content_type omitted" };
+
+  try {
+    const response = await fetch("https://mcp.lennysdata.com/mcp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Date.now(),
+        method: "tools/call",
+        params: {
+          name: "search_content",
+          arguments: { query, limit },
+        },
+      }),
+    });
+
+    const text = await response.text();
+    diag.http_status = response.status;
+    diag.raw_response_preview = text.slice(0, 2000);
+
+    const dataLines = text
+      .split("\n")
+      .filter(line => line.startsWith("data: "))
+      .map(line => line.slice(6).trim())
+      .filter(line => line && line !== "[DONE]");
+    diag.data_lines_count = dataLines.length;
+
+    for (const line of dataLines) {
+      try {
+        const parsed = JSON.parse(line);
+        const results = parsed?.result?.content?.[0]?.text;
+        if (!results) { diag.no_result_text_in_line = parsed; continue; }
+        const searchResults = JSON.parse(results);
+        diag.parsed_result_count = searchResults.results?.length ?? 0;
+        break;
+      } catch (e) {
+        diag.parse_error = String(e);
+      }
+    }
+  } catch (e) {
+    diag.fetch_error = String(e);
+  }
+
+  return diag;
 }
 
 function isVerifiedInCorpus(name: string, corpus: string): boolean {
@@ -323,6 +400,23 @@ function stripBareArchiveCitations(text: string): string {
     console.log(`Stripping bare archive citation: ${match.trim()}`);
     return "";
   });
+}
+
+// Eval-only observation: counts archive-format citations `(Name, Role · Lenny's
+// Archive)` across all string fields. Read-only — does not affect verifyArchiveCitations
+// or any scrubbing behavior. Called before and after verifyParsedCitations to answer
+// "how many citations did the scrubber remove" without guessing about regex behavior.
+function countArchiveCitations(parsed: Record<string, unknown>): number {
+  const blockRegex = /\(([^)]+·\s*Lenny's Archive[^)]*)\)/g;
+  let count = 0;
+  for (const value of Object.values(parsed)) {
+    if (typeof value !== "string") continue;
+    let match;
+    while ((match = blockRegex.exec(value)) !== null) {
+      count += match[1].split(";").length;
+    }
+  }
+  return count;
 }
 
 function verifyParsedCitations(parsed: Record<string, unknown>, corpus: string): Record<string, unknown> {
@@ -484,10 +578,13 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId, timezone } = body;
+    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId, timezone, debug } = body;
 
     const { userId, userEmail } = getUserFromJwt(req.headers.get("Authorization"));
     const isDevUser = userEmail === DEV_EMAIL;
+    // Eval-only instrumentation (corpus retrieval + citation scrub counts). Gated to the
+    // dev-bypass user so ordinary product traffic never carries this extra payload.
+    const includeDebug = debug === true && isDevUser;
     const tz = getTimezoneAbbr(typeof timezone === "string" ? timezone : undefined);
     const today = getLocalDate(typeof timezone === "string" ? timezone : "UTC");
 
@@ -652,14 +749,36 @@ ${teardownContext}`;
     const webQuery = `${productName} product strategy 2026`;
 
     const allLennyQueries = [productName ?? "", ...searchQueries];
+    // diags[i] is filled in as a side effect of the matching searchLennyData call
+    // when includeDebug is on; it never alters the request or the returned string.
+    const lennyDiags: Record<string, unknown>[] = allLennyQueries.map(() => ({}));
     const [lennyResults, webSearchResult] = await Promise.all([
-      Promise.all(allLennyQueries.map(q => searchLennyData(q, 5))),
+      Promise.all(allLennyQueries.map((q, i) => searchLennyData(q, 5, "", includeDebug ? lennyDiags[i] : undefined))),
       searchWeb(webQuery),
     ]);
 
     const lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
     console.log("Lenny corpus length:", lennyCorpus.length);
     console.log("Web context length:", webSearchResult.text.length);
+
+    // Eval-only diagnostics: per-query retrieval size/counts plus the raw upstream
+    // response, so a zero-result run can be told apart from a request/parsing bug
+    // without needing edge function logs. Also probes whether sending an empty
+    // content_type string (the production default) is itself filtering out results,
+    // by re-querying the bare product name with content_type omitted entirely.
+    let corpusRetrieval: Record<string, unknown> | undefined;
+    if (includeDebug) {
+      corpusRetrieval = Object.fromEntries(allLennyQueries.map((q, i) => {
+        const result = lennyResults[i] ?? "";
+        return [`query_${i + 1}`, {
+          query: q,
+          result_chars: result.length,
+          result_count: result ? (result.match(/^SOURCE: /gm) ?? []).length : 0,
+          ...lennyDiags[i],
+        }];
+      }));
+      corpusRetrieval.probe_content_type_omitted = await probeLennyDataNoContentTypeFilter(productName ?? "");
+    }
 
     const lennySection = lennyCorpus.length > 0
       ? `LENNY'S ARCHIVE — FRAMEWORKS & PHILOSOPHY:\n${lennyCorpus}`
@@ -752,7 +871,9 @@ ${digitalProductsConstraint}`;
     }
 
     // ── Verify archive citations across all sections ──────────────────────────
+    const citationsWritten = includeDebug ? countArchiveCitations(parsed) : undefined;
     parsed = verifyParsedCitations(parsed, lennyCorpus);
+    const citationsSurvived = includeDebug ? countArchiveCitations(parsed) : undefined;
 
     // ── Lenny's Lens: sequential, informed by main teardown output ────────────
     const lensContext = [
@@ -772,6 +893,13 @@ ${digitalProductsConstraint}`;
 
     if (userId && !isDevUser) {
       await supabase.rpc("increment_usage", { p_user_id: userId, p_date: today });
+    }
+
+    if (includeDebug) {
+      parsed._eval_debug = {
+        corpus_retrieval: corpusRetrieval,
+        archive_citations: { written: citationsWritten, survived: citationsSurvived },
+      };
     }
 
     return new Response(JSON.stringify(parsed), {
