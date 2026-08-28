@@ -167,146 +167,52 @@ ${userTeardown}`;
 }
 
 
+// Full-text search over the local Lenny corpus mirror (public.lenny_corpus),
+// through the search_lenny_corpus() RPC. Returns SOURCE-delimited excerpt blocks
+// in the same shape the retired LennyData MCP produced, or "" when nothing hits.
+// The corpus is refreshed from the ZIP export by scripts/sync-lenny-corpus.mjs.
+//
+// `query` is a pipe-delimited keyword string (e.g. "pricing|monetization|tier");
+// `contentType` is "podcast" | "newsletter" | "" (no filter).
 // diag, when passed, is filled in as a side effect for eval instrumentation only.
-// It never changes the request sent or the string returned — purely observational.
 async function searchLennyData(
   query: string,
   limit = 5,
   contentType = "",
   diag?: Record<string, unknown>,
 ): Promise<string> {
-  const token = Deno.env.get("LENNYSDATA_TOKEN") ?? "";
-
-  const response = await fetch("https://mcp.lennysdata.com/mcp", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json, text/event-stream",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: Date.now(),
-      method: "tools/call",
-      params: {
-        name: "search_content",
-        arguments: { query, limit, content_type: contentType },
-      },
-    }),
+  const { data, error } = await supabase.rpc("search_lenny_corpus", {
+    q: query,
+    match_limit: limit,
+    filter_type: contentType,
   });
 
-  console.log(`LennyData [${query}] status:`, response.status);
-
-  const text = await response.text();
-
   if (diag) {
-    diag.http_status = response.status;
-    diag.raw_response_preview = text.slice(0, 2000);
+    diag.rpc_error = error?.message ?? null;
+    diag.parsed_result_count = Array.isArray(data) ? data.length : 0;
   }
 
-  const dataLines = text
-    .split("\n")
-    .filter(line => line.startsWith("data: "))
-    .map(line => line.slice(6).trim())
-    .filter(line => line && line !== "[DONE]");
-
-  if (diag) diag.data_lines_count = dataLines.length;
-
-  if (!dataLines.length) return "";
-
-  for (const line of dataLines) {
-    try {
-      const parsed = JSON.parse(line);
-      const results = parsed?.result?.content?.[0]?.text;
-      if (!results) {
-        if (diag) diag.no_result_text_in_line = parsed;
-        continue;
-      }
-
-      const searchResults = JSON.parse(results);
-      if (diag) diag.parsed_result_count = searchResults.results?.length ?? 0;
-      if (!searchResults.results?.length) {
-        console.log(`LennyData [${query}]: 0 results`);
-        continue;
-      }
-
-      console.log(`LennyData [${query}]: ${searchResults.results.length} results`);
-
-      return searchResults.results.map((r: {
-        title: string;
-        type: string;
-        date: string;
-        snippet: string;
-        snippets?: { text: string }[];
-      }) => {
-        const excerpts = r.snippets?.map((s) => s.text).join("\n") ?? r.snippet;
-        return `SOURCE: ${r.title} (${r.type}, ${r.date})\n${excerpts}`;
-      }).join("\n\n---\n\n");
-    } catch (e) {
-      if (diag) diag.parse_error = String(e);
-      continue;
-    }
+  if (error) {
+    console.error(`lenny_corpus [${query}] error:`, error.message);
+    return "";
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    console.log(`lenny_corpus [${query}]: 0 results`);
+    return "";
   }
 
-  return "";
-}
+  console.log(`lenny_corpus [${query}]: ${data.length} results`);
 
-// Eval-only diagnostic probe: identical call to searchLennyData but with
-// content_type omitted from the arguments entirely, to test whether sending an
-// empty string for content_type (the production default) causes the MCP tool to
-// filter to zero results. Never called outside includeDebug; does not feed into
-// lennyCorpus or any pipeline output.
-async function probeLennyDataNoContentTypeFilter(query: string, limit = 5): Promise<Record<string, unknown>> {
-  const token = Deno.env.get("LENNYSDATA_TOKEN") ?? "";
-  const diag: Record<string, unknown> = { query, variant: "content_type omitted" };
-
-  try {
-    const response = await fetch("https://mcp.lennysdata.com/mcp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: Date.now(),
-        method: "tools/call",
-        params: {
-          name: "search_content",
-          arguments: { query, limit },
-        },
-      }),
-    });
-
-    const text = await response.text();
-    diag.http_status = response.status;
-    diag.raw_response_preview = text.slice(0, 2000);
-
-    const dataLines = text
-      .split("\n")
-      .filter(line => line.startsWith("data: "))
-      .map(line => line.slice(6).trim())
-      .filter(line => line && line !== "[DONE]");
-    diag.data_lines_count = dataLines.length;
-
-    for (const line of dataLines) {
-      try {
-        const parsed = JSON.parse(line);
-        const results = parsed?.result?.content?.[0]?.text;
-        if (!results) { diag.no_result_text_in_line = parsed; continue; }
-        const searchResults = JSON.parse(results);
-        diag.parsed_result_count = searchResults.results?.length ?? 0;
-        break;
-      } catch (e) {
-        diag.parse_error = String(e);
-      }
-    }
-  } catch (e) {
-    diag.fetch_error = String(e);
-  }
-
-  return diag;
+  return (data as {
+    title: string;
+    content_type: string;
+    published_date: string | null;
+    headline: string;
+  }[])
+    .map((r) =>
+      `SOURCE: ${r.title} (${r.content_type}, ${r.published_date ?? "n.d."})\n${r.headline}`
+    )
+    .join("\n\n---\n\n");
 }
 
 function isVerifiedInCorpus(name: string, corpus: string): boolean {
@@ -761,11 +667,9 @@ ${teardownContext}`;
     console.log("Lenny corpus length:", lennyCorpus.length);
     console.log("Web context length:", webSearchResult.text.length);
 
-    // Eval-only diagnostics: per-query retrieval size/counts plus the raw upstream
-    // response, so a zero-result run can be told apart from a request/parsing bug
-    // without needing edge function logs. Also probes whether sending an empty
-    // content_type string (the production default) is itself filtering out results,
-    // by re-querying the bare product name with content_type omitted entirely.
+    // Eval-only diagnostics: per-query retrieval size/counts plus the RPC error
+    // (if any), so a zero-result run can be told apart from a query bug without
+    // needing edge function logs.
     let corpusRetrieval: Record<string, unknown> | undefined;
     if (includeDebug) {
       corpusRetrieval = Object.fromEntries(allLennyQueries.map((q, i) => {
@@ -777,7 +681,6 @@ ${teardownContext}`;
           ...lennyDiags[i],
         }];
       }));
-      corpusRetrieval.probe_content_type_omitted = await probeLennyDataNoContentTypeFilter(productName ?? "");
     }
 
     const lennySection = lennyCorpus.length > 0

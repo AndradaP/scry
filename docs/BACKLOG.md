@@ -72,7 +72,8 @@ Wired everything to real infrastructure. Supabase auth (login, signup, password 
 - [ ] Configurable teardown depth — user-selectable
 - [ ] Master Rubric visibility — consider whether to expose to users
 - [ ] Smart scope narrowing — post-generation, surface 2-3 drill-down angles using Exa results in parallel
-- [ ] Custom RAG pipeline — contingency only, build if LennyData MCP becomes insufficient
+- [x] Local corpus mirror — archive synced from the ZIP export into `public.lenny_corpus`, searched via `search_lenny_corpus()` FTS RPC. Kills the expiring-MCP-token dependency; `generate-teardown` no longer calls `mcp.lennysdata.com`. Refresh runbook: `scripts/sync-lenny-corpus.md`. Quarterly manual sync.
+- [ ] Semantic retrieval — add an `embedding vector` column to `lenny_corpus` and rank by similarity; fast-follow to the FTS-only search, once FTS quality is judged on real teardowns
 - [ ] Knowledge Graph layer — nodes: experts, frameworks, companies; edges: relationships
 
 ### Product
