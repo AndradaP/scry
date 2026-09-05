@@ -15,15 +15,22 @@ baselines exist as a control — they may fabricate citations, omit them
 entirely, or cite nothing in a way that can even be checked. This pipeline
 treats that as expected input, not an error case to special-case away.
 
-Three stages, each consuming the previous one's output:
+Five stages, each consuming the previous one's output:
 
 1. **Extraction** — pull every citation-shaped span out of `raw_output`.
 2. **Classification** — decide what kind of citation it is against the archive.
 3. **Host-attribution check** — a stricter, separately-callable pass over the
    subset of citations claiming to be Lenny's own words.
+4. **Outlet legitimacy check** — for web citations, flag outlet names that
+   aren't independently recognizable, separate from whether the underlying
+   claim itself checks out.
+5. **Vendor-source-citation metric** — for web citations, flag when the
+   "independent" source is actually the product's own blog/help center/press
+   page, not third-party grounding.
 
-Stage 2 and 3 both depend on an archive lookup that this doc deliberately
-does not build (Section 4).
+Stages 2-5 all depend on an archive/web lookup that this doc deliberately
+does not build (Section 6). Stages 3-5 are each filters over Stage 2's
+output — they only ever add fields, never change Stage 2's classification.
 
 ## 1. Extraction
 
@@ -120,7 +127,7 @@ on, distinct from "every claim it made checked out."
 
 ## 2. Verification classification
 
-For each extracted citation, call the archive lookup (Section 4) with
+For each extracted citation, call the archive lookup (Section 6) with
 `{ claim_text, claimed_speaker }` and classify using its result(s):
 
 1. **No candidate match at all** (lookup returns empty) → `fabricated`.
@@ -148,7 +155,7 @@ Web citations (`claimed_source_type: "web"`) run through the same two-stage
 logic against a web source instead of a transcript; the archive/web
 distinction only changes which lookup backend is queried, not the
 classification rules — out of scope to spec further here since the task is
-the Lenny archive, but the interface in Section 4 is written source-agnostic
+the Lenny archive, but the interface in Section 6 is written source-agnostic
 so it isn't blocked on that.
 
 Edge cases:
@@ -185,7 +192,7 @@ grammar literally supports `(Lenny Rachitsky, Host · Lenny's Archive)`, so
 1. Take the archive lookup's top match from Section 2 Step 1 for this
    citation — specifically its matched *utterance*, not just "this episode is
    about the right topic." The lookup output must carry per-utterance
-   speaker metadata for this to work at all (Section 4 output shape assumes
+   speaker metadata for this to work at all (Section 6 output shape assumes
    the archive is turn-tagged: `speaker_role: "host" | "guest"` per matched
    snippet).
 2. If `matched_result.speaker_role == "guest"` → this is not a generic
@@ -206,7 +213,74 @@ classifications in Section 2 exhaustive and mutually exclusive, while still
 letting reporting compute a dedicated "guest→host misattribution rate" as a
 distinct metric from the overall misattribution rate.
 
-## 4. Interface boundary — real archive lookup plugs in here
+## 4. Outlet legitimacy check (web citations)
+
+Section 2's classification only asks whether a web citation's underlying
+*claim* checks out against a live source — it never asks whether
+`claimed_episode_or_outlet` is a name worth trusting in the first place. The
+qualitative read of the Aug 29 batch surfaced web citations attributing
+claims to outlet names that are plausible-sounding but not independently
+recognizable (small or invented-reading trade blogs), which Section 2 alone
+wouldn't catch: the underlying claim can still resolve to
+`verified-paraphrase` against a live web source even when the outlet name
+itself is one nobody would recognize or vouch for.
+
+This is a filter over Section 2's output, same shape as Section 3 above: it
+adds a field, it never changes the classification.
+
+**Trigger**: run on every extracted citation where `claimed_source_type ==
+"web"`.
+
+**Logic**: maintain (or query) a lightweight outlet-reputation signal —
+recognized major/trade outlets, the product's own domain family (Section 5
+below handles that case specifically), and a residual "unfamiliar" bucket.
+For each web citation:
+
+1. If `claimed_episode_or_outlet` resolves to a known/recognized outlet →
+   `outlet_legitimacy: "recognized"`.
+2. Otherwise → `outlet_legitimacy: "unfamiliar"`. This is a flag for manual
+   review, not an automatic downgrade to `fabricated` — a small or obscure
+   trade newsletter is not fabricated, just unverifiable by familiarity
+   alone, and the underlying claim may still be accurate and independently
+   sourced.
+
+**Output**: adds `outlet_legitimacy: "recognized" | "unfamiliar"` on top of
+an existing Section 2 classification. Reporting can then compute an
+"unfamiliar-outlet rate" per arm as its own metric, distinct from the
+fabricated/misattributed rates.
+
+## 5. Vendor-source-citation metric
+
+Separate concern from legitimacy above: even a fully recognized, legitimate
+outlet can be the *product's own* blog, help center, or press page — which
+is not independent grounding, it's the vendor describing itself. Seen
+repeatedly in the Aug 29 batch (Figma's own Help Center, Resolve AI's own
+blog, cited as if third-party sourcing).
+
+**Trigger**: run on every extracted citation where `claimed_source_type ==
+"web"`, using the `product` field already carried on the `eval_runs` row.
+
+**Logic**: compare `claimed_episode_or_outlet` — and, where available, the
+underlying source URL/domain from the web search results rather than just
+the outlet-name string — against the product's own domain family (its own
+site, blog subdomain, help/support center, press page). If it matches:
+
+1. Set `vendor_sourced: true` on the citation record (default `false`
+   otherwise).
+2. This is a metric, not a verdict on truthfulness — a vendor-sourced
+   citation can still be `verified-verbatim` (the product really did say
+   that on its own blog), but it should never count toward "independent
+   grounding" in aggregate reporting.
+
+**Aggregation implication**: report `vendor_sourced_citation_rate` per arm
+alongside the Section 2 classification counts — citations pointing at the
+product's own properties versus genuinely third-party sources. This is
+exactly the signal the qualitative read was checking for by hand (e.g.
+"Figma had 3/16 pointing at its own Help Center") and it deserves to be a
+tracked metric per run, not an anecdotal spot-check repeated manually every
+time.
+
+## 6. Interface boundary — real archive lookup plugs in here
 
 Everything above is written against this input/output contract. Building the
 actual query against Lenny's archive (via LennyData MCP, referenced
@@ -267,7 +341,7 @@ Scry `raw_output.strategy_and_positioning` (generate mode) contains:
 | claimed_role | `Host` |
 | raw_citation_text | `(Lenny Rachitsky, Host · Lenny's Archive)` |
 
-**Archive lookup** (Section 4) called with `{claim_text, claimed_speaker:
+**Archive lookup** (Section 6) called with `{claim_text, claimed_speaker:
 "Lenny Rachitsky"}` returns:
 
 ```
@@ -314,4 +388,14 @@ count rather than folded into `misattributed`. Expect the two baseline arms
 to skew heavily toward `fabricated` (or zero-citation rows per Section 1b),
 since they have no real grounding mechanism — that contrast against Scry's
 distribution is the point of running all three arms through the same
-pipeline. Full reporting/scoring format is out of scope for this document.
+pipeline.
+
+Also roll up, per arm, the two web-citation-specific signals from Sections 4
+and 5: an **unfamiliar-outlet rate** (share of web citations with
+`outlet_legitimacy: "unfamiliar"`) and a **vendor-sourced-citation rate**
+(share of web citations with `vendor_sourced: true`). Neither changes a
+citation's `classification`, but both matter for the same reason
+`guest_to_host` gets its own tier: a citation can be technically
+`verified-verbatim` and still not be the independent third-party grounding
+the product's positioning implies it is. Full reporting/scoring format is
+out of scope for this document.

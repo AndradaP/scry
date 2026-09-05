@@ -14,10 +14,15 @@ Target file for the eventual implementation: `scripts/eval/run-judgments.mjs`
 
 ## 1. Inputs and scope
 
-`eval_runs` has no foreign key from `eval_judgments`, and a product/arm pair
-can have multiple `eval_runs` rows (the script is re-run over time). To avoid
-silently comparing the wrong pair of runs, the orchestrator takes explicit
-run identifiers rather than resolving "the run for product X, arm Y" itself:
+A product/arm pair can have multiple `eval_runs` rows (the script is re-run
+over time). To avoid silently comparing the wrong pair of runs, the
+orchestrator takes explicit run identifiers rather than resolving "the run
+for product X, arm Y" itself — and as of the schema fix in
+`pending_eval_judgments.sql` (`eval_run_id_a` / `eval_run_id_b`, both
+`NOT NULL REFERENCES eval_runs(id)`), those identifiers are persisted on the
+judgment row itself, not just used transiently to fetch text. A reader can
+now always answer "which exact generation was scored" by following the FK,
+not just "which arm labels were compared."
 
 ```
 orchestrateJudgments({ runIdA, runIdB, judgeModels }):
@@ -29,27 +34,37 @@ orchestrateJudgments({ runIdA, runIdB, judgeModels }):
   # Canonicalize order so the same pair is never recorded as both
   # (arm_a=scry, arm_b=claude_vanilla) and (arm_a=claude_vanilla, arm_b=scry).
   [canonicalRun, otherRun] = sortByArmName([runA, runB])
-  product   = canonicalRun.product
-  arm_a     = canonicalRun.arm
-  arm_b     = otherRun.arm
+  product        = canonicalRun.product
+  arm_a          = canonicalRun.arm
+  arm_b          = otherRun.arm
+  eval_run_id_a  = canonicalRun.id
+  eval_run_id_b  = otherRun.id
 
   textA = sanitizeOutput(canonicalRun)
   textB = sanitizeOutput(otherRun)
 
   for judgeModel in judgeModels:
     for dim in STANDARD_DIMENSIONS:
-      runStandardDimension(product, arm_a, arm_b, dim, textA, textB, judgeModel)
-    runInsightNoveltyDimension(product, arm_a, arm_b, textA, textB, judgeModel)
+      runStandardDimension(product, arm_a, arm_b, eval_run_id_a, eval_run_id_b,
+                            dim, textA, textB, judgeModel)
+    runInsightNoveltyDimension(product, arm_a, arm_b, eval_run_id_a, eval_run_id_b,
+                                textA, textB, judgeModel)
 ```
 
-Caveat worth flagging for review: because `eval_judgments` keys on
-`(product, arm_a, arm_b, dimension, judge_model, position_swapped)` and not
-on `eval_runs.id`, re-judging with a *different* pair of runs for the same
-product/arm combo will collide with prior rows under the current schema.
-Callers are responsible for only invoking this once per product/arm pair
-they care about, or for accepting that a later run overwrites/skips based on
-the same identity (see §5). This is a schema limitation, not something this
-script works around.
+Caveat worth flagging for review: `alreadyJudged` (§5) still keys its
+existence check on `(product, arm_a, arm_b, dimension, judge_model,
+position_swapped)`, not on `eval_run_id_a`/`eval_run_id_b` — that's a
+deliberate choice to keep "don't re-judge a product/arm pair we've already
+scored" as the idempotency semantics, not "don't re-judge these exact two
+rows." Re-judging with a *different* pair of runs for the same product/arm
+combo will still be skipped by `alreadyJudged` under that natural key, same
+as before the FK existed. The FK no longer leaves that prior judgment
+*ambiguous* — `eval_run_id_a`/`eval_run_id_b` on the stored row always say
+exactly which generation was scored — it just doesn't change which row
+`alreadyJudged` treats as "already covered." If a caller wants "judge this
+specific new pair of runs even though this arm-pair was scored before,"
+that's the sibling migration/idempotency-semantics conversation, not
+something this script decides unilaterally.
 
 ## 2. Judge backend abstraction
 
@@ -106,13 +121,35 @@ function sanitizeOutput(run):
 function extractText(arm, rawOutput):
   match arm:
     case "scry":
-      # Pull the actual analysis text out of generate-teardown's response
-      # shape (confirm exact keys against the live payload when
-      # implementing — run-eval.mjs treats it as an opaque blob and never
-      # unpacks it). Concatenate section bodies in document order; drop any
-      # metadata fields (coverage_tier, citation source arrays, etc.) that
-      # aren't prose.
-      return joinSections(rawOutput)   # placeholder for real key access
+      # Confirmed against supabase/functions/generate-teardown/index.ts
+      # directly (2026-08-30) — generate mode returns exactly these keys, in
+      # this order, as a flat JSON object with one string per section:
+      #   product_url, product_overview, strategy_and_positioning,
+      #   feature_breakdown, growth_model, design_analysis, key_insights
+      # `lennys_lens` is appended after the main call returns (a separate,
+      # sequential Sonnet call) and is present on every real response.
+      # `product_url` is not prose — a bare URL string, not analysis — and
+      # must be excluded from the joined text, not just left in as noise.
+      # Critique mode returns a different five-key shape instead:
+      #   overall_assessment, strengths, gaps_and_blind_spots,
+      #   framework_alignment, suggested_improvements
+      # (also followed by `lennys_lens`). The two key-sets are disjoint, so
+      # sniffing which one is present is reliable — but moot for the current
+      # eval_runs data anyway: run-eval.mjs's runScry() hardcodes
+      # `mode: "generate"`, so every scry row in the table today is
+      # generate-mode. Keep the critique branch for when/if the eval script
+      # grows a critique arm, but don't over-build for it now.
+      # When `debug: true` was sent (as run-eval.mjs always does — see its
+      # `runScry()`), the edge function also returns `_eval_debug`
+      # (corpus-retrieval + citation-scrub counts). That key is
+      # instrumentation, not model output, and must be excluded from the
+      # joined text same as `product_url`.
+      sectionKeys = ("overall_assessment" in rawOutput)
+        ? ["overall_assessment", "strengths", "gaps_and_blind_spots",
+           "framework_alignment", "suggested_improvements", "lennys_lens"]
+        : ["product_overview", "strategy_and_positioning", "feature_breakdown",
+           "growth_model", "design_analysis", "key_insights", "lennys_lens"]
+      return sectionKeys.map(k => rawOutput[k]).filter(Boolean).join("\n\n")
     case "claude_vanilla" | "claude_web":
       # Anthropic Messages API envelope: concatenate only text blocks,
       # skip tool_use / tool_result / thinking blocks entirely — their
@@ -164,25 +201,27 @@ STANDARD_DIMENSIONS = [
   { name: "coherence_actionability", promptFn: coherenceActionabilityPrompt },
 ]
 
-function runStandardDimension(product, arm_a, arm_b, dim, textA, textB, judgeBackend):
+function runStandardDimension(product, arm_a, arm_b, eval_run_id_a, eval_run_id_b,
+                                dim, textA, textB, judgeBackend):
   # position_swapped=false: arm_a shown as Output A, arm_b as Output B
   normalRow = runSinglePositionCall(
-    product, arm_a, arm_b, dim, judgeBackend,
+    product, arm_a, arm_b, eval_run_id_a, eval_run_id_b, dim, judgeBackend,
     positionSwapped: false,
     promptOutputA: textA, promptOutputB: textB,
   )
 
   # position_swapped=true: arm_b shown as Output A, arm_a as Output B
   swappedRow = runSinglePositionCall(
-    product, arm_a, arm_b, dim, judgeBackend,
+    product, arm_a, arm_b, eval_run_id_a, eval_run_id_b, dim, judgeBackend,
     positionSwapped: true,
     promptOutputA: textB, promptOutputB: textA,
   )
 
   return { normalRow, swappedRow }   # aggregate computed separately, see §4.1
 
-function runSinglePositionCall(product, arm_a, arm_b, dim, judgeBackend,
-                                positionSwapped, promptOutputA, promptOutputB):
+function runSinglePositionCall(product, arm_a, arm_b, eval_run_id_a, eval_run_id_b,
+                                dim, judgeBackend, positionSwapped,
+                                promptOutputA, promptOutputB):
   if alreadyJudged(product, arm_a, arm_b, dim.name, judgeBackend.name, positionSwapped):
     return fetchExistingJudgment(...)   # see §5
 
@@ -196,6 +235,7 @@ function runSinglePositionCall(product, arm_a, arm_b, dim, judgeBackend,
 
   row = {
     product, arm_a, arm_b,
+    eval_run_id_a, eval_run_id_b,    # NOT NULL FKs — which exact runs were scored
     dimension: dim.name,
     judge_model: judgeBackend.name,
     position_swapped: positionSwapped,
@@ -290,7 +330,8 @@ called out explicitly here so it isn't mistaken for a missed swap call
 during review.
 
 ```
-function runInsightNoveltyDimension(product, arm_a, arm_b, textA, textB, judgeBackend):
+function runInsightNoveltyDimension(product, arm_a, arm_b, eval_run_id_a, eval_run_id_b,
+                                      textA, textB, judgeBackend):
   dimName = "insight_novelty"
   if alreadyJudged(product, arm_a, arm_b, dimName, judgeBackend.name, positionSwapped: false):
     return fetchExistingJudgment(...)
@@ -299,12 +340,12 @@ function runInsightNoveltyDimension(product, arm_a, arm_b, textA, textB, judgeBa
   claimsA = callJudgeJSON(judgeBackend, claimExtractionPrompt(textA)).claims
   claimsB = callJudgeJSON(judgeBackend, claimExtractionPrompt(textB)).claims
 
-  # Step 2: diff for uniqueness (non-judge-verdict step — determining
-  # whether two claims are "the same point" is itself a semantic judgment
-  # call, so this likely needs its own judge-backed equivalence prompt;
-  # judge-prompts.mjs doesn't currently export one, so this is flagged as
-  # an open dependency on the sibling doc rather than assumed away).
-  { uniqueToA, uniqueToB } = dedupeClaimsAcrossOutputs(claimsA, claimsB, judgeBackend)
+  # Step 2: diff for uniqueness. Resolved 2026-08-30 — judge-prompts.mjs now
+  # exports claimEquivalencePrompt(claimsA, claimsB); this is a judge call
+  # like any other, just not a winner/justification-shaped one.
+  equivRaw = callJudgeJSON(judgeBackend, claimEquivalencePrompt(claimsA, claimsB))
+  uniqueToA = equivRaw.unique_to_a   // exact strings from claimsA, per the prompt's contract
+  uniqueToB = equivRaw.unique_to_b   // exact strings from claimsB
 
   # Step 3: score each arm's unique claims independently.
   scoredA = uniqueToA.length > 0
@@ -332,6 +373,7 @@ function runInsightNoveltyDimension(product, arm_a, arm_b, textA, textB, judgeBa
 
   row = {
     product, arm_a, arm_b,
+    eval_run_id_a, eval_run_id_b,    # NOT NULL FKs — which exact runs were scored
     dimension: dimName,
     judge_model: judgeBackend.name,
     position_swapped: false,
@@ -349,10 +391,11 @@ dimensions leave `null`, matching the column comment in
 
 ## 7. Open dependencies on sibling docs
 
-- Exact `generate-teardown` response keys for `extractText("scry", ...)` —
-  `run-eval.mjs` never unpacks `raw_output`, so this needs a look at a real
-  payload before implementation.
-- A claim-equivalence judge prompt for `dedupeClaimsAcrossOutputs` — not
-  currently exported by `judge-prompts.mjs`.
+- ~~Exact `generate-teardown` response keys for `extractText("scry", ...)`~~
+  — **resolved 2026-08-30**, confirmed directly against the edge function
+  source; see §3 above.
+- ~~A claim-equivalence judge prompt for `dedupeClaimsAcrossOutputs`~~ —
+  **resolved 2026-08-30**, `claimEquivalencePrompt` added to
+  `judge-prompts.mjs`; see §6.
 - Whether an aggregate-verdict row/table is worth adding to the
   `eval_judgments` schema (§4.1) — a call for the migration doc, not this one.

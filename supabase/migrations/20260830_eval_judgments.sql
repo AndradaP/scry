@@ -1,9 +1,7 @@
--- STAGED / PENDING MIGRATION — NOT YET APPLIED.
--- This file is for human review only. It deliberately does NOT follow the
--- repo's date-prefixed migration filename convention (e.g. 20260726_*.sql)
--- so it will not be picked up automatically by the Supabase CLI or any
--- migration runner. Once reviewed, rename it to a proper timestamped
--- filename to promote it to a real migration.
+-- Promoted from pending_eval_judgments.sql on 2026-08-30, with the
+-- eval_run_id_a/eval_run_id_b FK fix applied (see docs/scry-eval-status.md)
+-- and eval_citations extended with the fields citation-verification.md's
+-- extraction/classification/outlet-legitimacy/vendor-source checks need.
 
 -- Relates to eval_runs (see 20260726_eval_runs.sql): each eval_runs row is
 -- one generation run (product, arm, prompt, raw_output, model,
@@ -13,6 +11,13 @@
 CREATE TABLE eval_judgments (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   product text NOT NULL,
+  -- Which two eval_runs rows were actually compared, not just which arm
+  -- labels. Without these, re-running a product creates ambiguous judgment
+  -- records with no way to tell which generation was scored — arm_a/arm_b
+  -- below are kept as a denormalized convenience for readable queries, but
+  -- these FKs are the source of truth.
+  eval_run_id_a uuid NOT NULL REFERENCES eval_runs(id) ON DELETE CASCADE,
+  eval_run_id_b uuid NOT NULL REFERENCES eval_runs(id) ON DELETE CASCADE,
   arm_a text NOT NULL,
   arm_b text NOT NULL,
   dimension text NOT NULL,
@@ -37,7 +42,12 @@ GRANT INSERT, SELECT ON eval_judgments TO service_role;
 CREATE TABLE eval_citations (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   eval_run_id uuid NOT NULL REFERENCES eval_runs(id) ON DELETE CASCADE,
+  arm text NOT NULL,
+  section_key text NOT NULL,
   claim_text text NOT NULL,
+  claimed_source_type text NOT NULL CHECK (claimed_source_type IN ('archive', 'web', 'unknown')),
+  claimed_speaker text,
+  claimed_role text,
   attributed_source text NOT NULL,
   verification_status text NOT NULL CHECK (
     verification_status IN (
@@ -47,6 +57,14 @@ CREATE TABLE eval_citations (
       'fabricated'
     )
   ),
+  -- Set only when verification_status = 'misattributed' and the claimed
+  -- speaker resolved to a host-name variant but the real speaker was a
+  -- guest — see citation-verification.md §3. Null for every other case.
+  misattribution_subtype text CHECK (misattribution_subtype IS NULL OR misattribution_subtype = 'guest_to_host'),
+  -- Web citations only (citation-verification.md §4/§5). Null for archive
+  -- and unattributed-training-knowledge citations.
+  outlet_legitimacy text CHECK (outlet_legitimacy IS NULL OR outlet_legitimacy IN ('recognized', 'unfamiliar')),
+  vendor_sourced boolean,
   evidence text,
   created_at timestamptz NOT NULL DEFAULT now()
 );

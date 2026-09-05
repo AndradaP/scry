@@ -31,3 +31,8 @@ dist-ssr
 # never committed (their ToS is personal-use-only).
 /data/lenny-corpus/
 *.lenny-archive.zip
+
+# Claude Code local/machine-specific state — settings.local.json has held a live
+# bearer token in an allowlisted command string before; never commit it.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

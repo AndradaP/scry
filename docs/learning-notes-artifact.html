@@ -1,0 +1,453 @@
+<!-- learning-notes-artifact-url: https://claude.ai/code/artifact/38c2720a-d560-4d6a-a2a8-d82af5972e0a -->
+<title>Scry Learning Log</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #eef1f0;
+    --surface: #ffffff;
+    --ink: #172024;
+    --ink-soft: #4b5a5d;
+    --ink-faint: #7c8a8c;
+    --accent: #1f6f6b;
+    --accent-soft: #dceae8;
+    --line: #d8ddda;
+    --chip-bg: #e7e2d6;
+    --code-bg: #f4f2ec;
+    --shadow: 0 1px 2px rgba(23, 32, 36, 0.06), 0 4px 16px rgba(23, 32, 36, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12181a;
+      --surface: #182022;
+      --ink: #e8edec;
+      --ink-soft: #9fb0ae;
+      --ink-faint: #6c7d7a;
+      --accent: #59d1c7;
+      --accent-soft: #1e3634;
+      --line: #2a3436;
+      --chip-bg: #232a26;
+      --code-bg: #1b2224;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12181a;
+    --surface: #182022;
+    --ink: #e8edec;
+    --ink-soft: #9fb0ae;
+    --ink-faint: #6c7d7a;
+    --accent: #59d1c7;
+    --accent-soft: #1e3634;
+    --line: #2a3436;
+    --chip-bg: #232a26;
+    --code-bg: #1b2224;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 720px);
+    justify-content: center;
+    gap: 56px;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    nav.toc { display: none; }
+  }
+
+  header.masthead {
+    grid-column: 1 / -1;
+    max-width: 720px;
+    margin: 0 auto 8px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  header.masthead .eyebrow {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  header.masthead h1 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-weight: 500;
+    font-size: 40px;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 10px 0 12px;
+  }
+  header.masthead p.dek {
+    color: var(--ink-soft);
+    font-size: 16px;
+    max-width: 58ch;
+    margin: 0;
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 48px;
+    align-self: start;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12.5px;
+  }
+  nav.toc .toc-label {
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  nav.toc li { margin-bottom: 7px; }
+  nav.toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    display: block;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+  }
+  nav.toc a:hover { color: var(--accent); border-left-color: var(--accent); }
+
+  main { min-width: 0; }
+
+  section.entry { margin-bottom: 56px; scroll-margin-top: 32px; }
+  section.entry:last-child { margin-bottom: 0; }
+
+  .entry-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .entry-num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 2px 7px;
+    flex-shrink: 0;
+  }
+  h2 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-weight: 500;
+    font-size: 25px;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-weight: 500;
+    font-size: 19px;
+    margin: 28px 0 10px;
+  }
+  .context {
+    font-size: 13.5px;
+    color: var(--ink-faint);
+    margin: 6px 0 16px;
+  }
+  .context strong { color: var(--ink-soft); font-weight: 600; }
+
+  p { margin: 0 0 14px; }
+  ul, ol.plain { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 5px; }
+
+  code {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.88em;
+    background: var(--chip-bg);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+  }
+
+  .table-wrap { overflow-x: auto; margin: 4px 0 20px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--surface); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--code-bg);
+  }
+  tr:last-child td { border-bottom: none; }
+
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 8px 0 22px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  .diagram figcaption {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  footer {
+    grid-column: 1 / -1;
+    max-width: 720px;
+    margin: 40px auto 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead">
+    <div class="eyebrow">Scry — build log</div>
+    <h1>Learning Log</h1>
+    <p class="dek">A running record of concepts, tools, and techniques explained while building Scry — kept for rereading, not as a general reference. Companion to <code>docs/LEARNING.md</code>.</p>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-label">Entries</div>
+    <ol>
+      <li><a href="#e1">1 · SQL setup script</a></li>
+      <li><a href="#e2">2 · PATH</a></li>
+      <li><a href="#e3">3 · npm</a></li>
+      <li><a href="#e4">4 · pgvector</a></li>
+      <li><a href="#e5">5 · Git &amp; GitHub</a></li>
+      <li><a href="#e6">6 · Env vars</a></li>
+      <li><a href="#e7">7 · React fundamentals</a></li>
+      <li><a href="#e8">8 · RAG, embeddings &amp; knowledge graphs</a></li>
+      <li><a href="#e9">9 · LLM-as-judge evaluation</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section class="entry" id="e1">
+      <div class="entry-head"><span class="entry-num">01</span><h2>SQL — the database setup script</h2></div>
+      <p class="context"><strong>Context:</strong> creating the <code>teardowns</code> and <code>messages</code> tables in Supabase.</p>
+      <ul>
+        <li>Core clauses: <code>create table</code>, <code>primary key</code>, <code>references</code>, <code>on delete cascade</code></li>
+        <li>Data types used: <code>uuid</code>, <code>text</code>, <code>jsonb</code>, <code>timestamptz</code></li>
+        <li><code>check</code> constraints, e.g. <code>check (mode in ('generate', 'critique'))</code></li>
+        <li><code>default gen_random_uuid()</code> — why UUIDs over incrementing IDs</li>
+        <li>Row Level Security (RLS) and <code>auth.uid()</code></li>
+        <li>The <code>vector</code> extension — enabled early for the RAG pipeline, see entry 4</li>
+      </ul>
+    </section>
+
+    <section class="entry" id="e2">
+      <div class="entry-head"><span class="entry-num">02</span><h2>PATH — Mac terminal environment variable</h2></div>
+      <p class="context"><strong>Context:</strong> installing Homebrew, adding it to PATH so the terminal could find <code>brew</code>.</p>
+      <ul>
+        <li>What PATH is and how the shell uses it to find programs</li>
+        <li><code>.zprofile</code> vs. <code>.zshrc</code></li>
+        <li>What <code>eval</code> does in a shell command</li>
+        <li>Environment variables generally</li>
+      </ul>
+    </section>
+
+    <section class="entry" id="e3">
+      <div class="entry-head"><span class="entry-num">03</span><h2>npm — Node package manager</h2></div>
+      <p class="context"><strong>Context:</strong> <code>npm install</code>, <code>npm run dev</code>.</p>
+      <ul>
+        <li>npm and its relationship to Node.js</li>
+        <li><code>package.json</code> vs. <code>package-lock.json</code></li>
+        <li><code>node_modules</code> — why it's never committed</li>
+        <li>Common commands: install, run, audit</li>
+      </ul>
+    </section>
+
+    <section class="entry" id="e4">
+      <div class="entry-head"><span class="entry-num">04</span><h2>pgvector — vector database extension</h2></div>
+      <p class="context"><strong>Context:</strong> enabled via <code>create extension if not exists vector</code>, for the RAG pipeline. Expanded in full in entry 8.</p>
+      <ul>
+        <li>What a vector is in an AI/ML context</li>
+        <li>How text becomes an embedding</li>
+        <li>Semantic similarity vs. keyword search</li>
+        <li>How pgvector fits Scry's pipeline; why Supabase-native over a separate vector DB</li>
+      </ul>
+    </section>
+
+    <section class="entry" id="e5">
+      <div class="entry-head"><span class="entry-num">05</span><h2>Git &amp; GitHub — version control basics</h2></div>
+      <p class="context"><strong>Context:</strong> cloning the repo, <code>.gitignore</code>, reading file-status indicators.</p>
+      <ul>
+        <li>The edit → stage → commit → push loop</li>
+        <li>What <code>.gitignore</code> does and why some files should never be committed</li>
+        <li>Branches: what they are, when they're needed</li>
+      </ul>
+      <h3>Lessons learned in the build</h3>
+      <ul>
+        <li><code>git pull --no-rebase origin main</code> is the safe default for a solo project</li>
+        <li>Remote can drift ahead of local when editing files directly on GitHub</li>
+        <li>Check <code>git log HEAD..origin/main --oneline</code> before panicking about a rejected push</li>
+        <li><code>git show &lt;hash&gt;:path/to/file</code> shows a file at a specific commit</li>
+      </ul>
+    </section>
+
+    <section class="entry" id="e6">
+      <div class="entry-head"><span class="entry-num">06</span><h2>Environment variables &amp; <code>.env.local</code></h2></div>
+      <p class="context"><strong>Context:</strong> storing the Supabase URL and API key securely.</p>
+      <ul>
+        <li>Why secrets never belong in source code</li>
+        <li><code>.env</code> vs. <code>.env.local</code> vs. <code>.env.production</code></li>
+        <li>The <code>VITE_</code> prefix requirement for frontend access</li>
+      </ul>
+      <h3>Lessons learned</h3>
+      <ul>
+        <li>Supabase secrets are set via <code>supabase secrets set KEY=value</code></li>
+        <li>Frontend vars need the <code>VITE_</code> prefix to reach the browser bundle</li>
+        <li><code>.env.local</code> must stay in <code>.gitignore</code>, always</li>
+      </ul>
+    </section>
+
+    <section class="entry" id="e7">
+      <div class="entry-head"><span class="entry-num">07</span><h2>React fundamentals — how Scry is built</h2></div>
+      <p class="context"><strong>Context:</strong> a walkthrough of the frontend's structure, logic, and language.</p>
+      <h3>TSX</h3>
+      <p>TypeScript + JSX — HTML-like syntax directly inside TypeScript files. TS adds types (catches bugs early); JSX adds the HTML-shaped syntax; TSX is both together. React compiles TSX to real HTML at runtime.</p>
+      <h3>The app-tree mental model</h3>
+      <p>A React app is a tree of components — big frames made of smaller frames, the way a Figma file nests groups. <code>App.tsx</code> is the root; it defines routes; routes render pages; pages compose components; components compose smaller components. Reference: <code>docs/scry-app-tree.jsx</code>.</p>
+    </section>
+
+    <section class="entry" id="e8">
+      <div class="entry-head"><span class="entry-num">08</span><h2>RAG, embeddings &amp; knowledge graphs — retrieval techniques</h2></div>
+      <p class="context"><strong>Context:</strong> 2026-09-04, deciding whether Scry's keyword-based corpus search is good enough for the eval, or whether the retrieval method itself needs to change before the eval's results can be trusted.</p>
+
+      <h3>RAG is the pattern, not a technique</h3>
+      <p>Retrieval-Augmented Generation: instead of only using what the model memorized during training, fetch relevant material at request time and feed it into the prompt, so generation is "augmented" by retrieval. Three stages — <strong>retrieve</strong> (find relevant content), <strong>augment</strong> (put it in the prompt), <strong>generate</strong> (the model writes using that context). RAG doesn't specify <em>how</em> you retrieve — that's a separate, swappable choice. Scry's actual pipeline:</p>
+
+      <figure class="diagram">
+        <pre class="mermaid">
+flowchart LR
+  Q[User asks for a<br/>product teardown] --> H[Haiku generates<br/>search queries]
+  H --> C[(lenny_corpus<br/>Postgres FTS)]
+  H --> E[Exa web search]
+  C --> S[Sonnet synthesizes<br/>the teardown]
+  E --> S
+  S --> O[Teardown output<br/>+ citations]
+        </pre>
+        <figcaption>Scry's retrieve → augment → generate pipeline, as currently built</figcaption>
+      </figure>
+
+      <h3>Three ways to do the "retrieve" step</h3>
+      <p><strong>Lexical / keyword search — what Scry uses today.</strong> Postgres full-text search (<code>tsvector</code>) matches literal words and word-stems. Query "usage-based pricing," it finds documents containing those words. Fast, cheap, precise when words match. Failure mode: "usage-based pricing" and "consumption pricing model" mean nearly the same thing but share almost no literal words — lexical search sees them as unrelated. This is the concrete mechanism behind "we might be missing analogous material that exists in the archive but doesn't share vocabulary with the query."</p>
+
+      <p><strong>Embeddings / semantic search.</strong> An embedding model converts text into a vector — a long list of numbers, often 768–1536 of them — positioned so that texts with <em>similar meaning</em> land near each other in that space, regardless of shared vocabulary. "Usage-based pricing" and "consumption pricing model" end up close together because the embedding model learned during its own training that these mean similar things. At query time, embed the query and search for the nearest vectors ("nearest-neighbor search"). <code>pgvector</code> is the Postgres extension that stores these vectors and runs that search inside the same database — already enabled on Scry's Supabase project, schema-ready, unused. Real limitation: embedding-similarity measures <em>topical</em> closeness, not <em>strategic relevance</em> — a chunk about Slack's pricing and a chunk about Notion's pricing sit close together just because both are "SaaS pricing" text, whether or not either is the right analogy for the product actually being analyzed.</p>
+
+      <p><strong>Knowledge graph.</strong> Instead of points in continuous space, represent content as explicit nodes (a guest, a framework, a company, a concept) connected by labeled, typed edges. Querying becomes graph traversal — walk outward from the inquiry through real relationships, possibly several hops away — and unlike embeddings, you can show the <em>path</em>, i.e. explain <em>why</em> something is relevant:</p>
+
+      <figure class="diagram">
+        <pre class="mermaid">
+graph LR
+  G["Guest: Madhavan Ramanujam"] -- discussed --> F["Framework: value-based pricing"]
+  F -- "applies to" --> Cat["Category: usage-based B2B SaaS"]
+  Cat -- "analogous to" --> AP["Arena Physica"]
+        </pre>
+        <figcaption>A knowledge-graph traversal reasoning toward a zero-coverage product</figcaption>
+      </figure>
+
+      <p>The cost: building the graph needs an extraction step (something reads every transcript/newsletter and pulls out entities + relationships — itself usually an LLM task, with its own error surface, just moved earlier in the pipeline instead of at generation time), plus designing an ontology (what node types and relationship types exist) before writing any query code. Meaningfully bigger build than flipping on <code>pgvector</code>.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th></th><th>Matches on</th><th>Explains "why relevant"?</th><th>Build cost</th><th>Failure mode</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Lexical (current)</strong></td><td>shared words</td><td>no</td><td>already built</td><td>misses paraphrases / analogies</td></tr>
+            <tr><td><strong>Embeddings</strong></td><td>shared meaning</td><td>no</td><td>small — pgvector's ready</td><td>similarity ≠ relevance</td></tr>
+            <tr><td><strong>Knowledge graph</strong></td><td>explicit relationships</td><td>yes</td><td>large — extraction + ontology</td><td>extraction step can mislabel or hallucinate relationships</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The sequencing decision — already made, before this eval</h3>
+      <p><code>docs/BACKLOG.md</code> already said, before this eval started: <em>"Semantic retrieval… fast-follow to the FTS-only search, once FTS quality is judged on real teardowns."</em> Not an oversight — a deliberate ship-cheap-then-measure order. This eval is that judgment moment. Don't build embeddings or a knowledge graph speculatively; let the citation-verification and judge results show whether retrieval recall (missing real content) or something else (generation-time fabrication discipline) is the actual bottleneck first.</p>
+    </section>
+
+    <section class="entry" id="e9">
+      <div class="entry-head"><span class="entry-num">09</span><h2>LLM-as-judge evaluation — bias, groundedness &amp; reliability</h2></div>
+      <p class="context"><strong>Context:</strong> 2026-09-04, building <code>scripts/eval/run-judgments.mjs</code> and <code>judge-prompts.mjs</code>. Using an LLM to score and compare two AI-generated outputs introduces its own failure modes, separate from whatever's wrong with the outputs being judged — an eval can be unreliable even when the thing it's evaluating is fine.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Term</th><th>What it means</th><th>How Scry's eval handles it</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Position bias</strong><br/>(order effect)</td>
+              <td>Judge models tend to systematically favor whichever output is shown first (or second), independent of actual quality — the LLM-judge-research version of a survey's primacy effect.</td>
+              <td><strong>Position swapping</strong>: every comparison runs twice, swapping which real arm is labeled "A." A verdict only counts if the same arm wins both times; if the winner flips on label order alone, it's recorded as a <code>tie</code> instead. See <code>orchestration-design.md</code> §4.1.</td>
+            </tr>
+            <tr>
+              <td><strong>Self-preference bias</strong><br/>(self-enhancement bias)</td>
+              <td>A model tends to rate outputs from its own family more favorably, implicitly using its own generation habits as the template for "good."</td>
+              <td>Judge with two different model families (Claude + Gemini), not one model judging everything. <strong>Known residual gap:</strong> the Claude judge backend uses the same model (<code>claude-sonnet-4-5</code>) that generated the <code>claude_vanilla</code>/<code>claude_web</code> arms — a Claude-only verdict on those comparisons is provisional until Gemini's independent verdict exists for the same pair.</td>
+            </tr>
+            <tr>
+              <td><strong>Verbosity / length bias</strong></td>
+              <td>Judges (like people) tend to rate longer answers as more thorough even when the extra length is padding or restatement, not more substance.</td>
+              <td>An explicit length-bias warning in every comparison prompt: a shorter answer making its point once shouldn't lose to a longer one restating the same point three times.</td>
+            </tr>
+            <tr>
+              <td><strong>Formatting / style bias</strong></td>
+              <td>Heavy bullets, headers, and bold read as "more organized" even when decorating the same substance as plain prose.</td>
+              <td>An explicit formatting-bias warning — the arms differ systematically in formatting for reasons unrelated to quality (Scry produces structured sections, the baselines produce prose).</td>
+            </tr>
+            <tr>
+              <td><strong>Groundedness / faithfulness</strong></td>
+              <td>Whether a claim is actually supported by real evidence, vs. invented. The RAG-eval field's term for "does it hallucinate."</td>
+              <td>The whole citation-verification layer, plus (as of 2026-09-04) the <code>grounded_insight_value</code> dimension's groundedness check.</td>
+            </tr>
+            <tr>
+              <td><strong>Hallucination vs. fabrication vs. misattribution</strong></td>
+              <td>Loosely used as synonyms in casual speech.</td>
+              <td>Scored as three distinct things: <em>hallucination</em> is the general term; <em>fabricated</em> means no real source was found anywhere; <em>misattributed</em> means the content is real but credited to the wrong speaker/source (guest-to-host is a named special case); <em>verified-verbatim</em>/<em>verified-paraphrase</em> are the two genuinely-grounded tiers.</td>
+            </tr>
+            <tr>
+              <td><strong>Idempotency</strong></td>
+              <td>Running the same operation twice produces the same result as running it once.</td>
+              <td>Re-running the judging script over already-judged data skips rather than re-calls (paid, non-deterministic) judge APIs or overwrites existing verdicts.</td>
+            </tr>
+            <tr>
+              <td><strong>Claim equivalence / deduplication</strong></td>
+              <td>Before scoring "uniqueness," you need to know whether two differently-worded claims are actually the same point.</td>
+              <td>A dedicated judge call, separate from extraction and from scoring, so an arm can't "win" on novelty just by paraphrasing something both sides already said.</td>
+            </tr>
+            <tr>
+              <td><strong>Ground truth</strong></td>
+              <td>The actual real facts a claim is checked against, as opposed to an opinion.</td>
+              <td>For factual claims: the real archive content, or a live web check. There is no ground truth for "is this reasoning good" — why the three comparison dimensions stay softer than the citation layer no matter how the prompt is worded.</td>
+            </tr>
+            <tr>
+              <td><strong>Inter-rater agreement</strong></td>
+              <td>How often two independent judges reach the same verdict on the same comparison.</td>
+              <td>Not yet computed. Worth adding once Gemini is producing real results — heavy Claude/Gemini disagreement on a dimension would itself signal that dimension is less reliable, independent of which arm "wins."</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Why the dimension isn't called <code>insight_novelty</code> anymore</h3>
+      <p>It started as pure novelty scoring: extract claims, dedupe overlapping ones across the two outputs, rate what's left. The original scoring asked the judge to rate "validity" as <em>"how likely is this claim to be actually true, based on what a knowledgeable practitioner would believe"</em> — which is exactly the shape of the problem it was supposed to catch. A well-written hallucination is, by construction, a claim a knowledgeable practitioner would find believable; that's what makes it well-written. Judged plausibility can't distinguish a true claim from a confident, plausible, false one.</p>
+      <p>As of 2026-09-04, validity is no longer judge-guessed. Each unique claim is checked against the real archive first, then a live web fact-check if the archive has nothing. Only "usefulness" — genuinely a judgment call even once truth is established — is left to the judge. An ungrounded-but-confident claim is actively penalized in the score, not just excluded, per the explicit call that a nice-sounding hallucination is worse than no claim at all. "Novelty" described only the dedup step; the dimension as a whole now measures something closer to <em>verified, unique, useful</em> — hence <strong>grounded_insight_value</strong>.</p>
+    </section>
+
+  </main>
+
+  <footer>docs/LEARNING.md · updated via the /learn skill</footer>
+</div>

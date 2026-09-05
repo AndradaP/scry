@@ -1,0 +1,195 @@
+<!-- eval-rubric-artifact-url: https://claude.ai/code/artifact/84e52745-7a73-4497-8968-3e9d3388ff2e -->
+<title>Scry Scoring Rubric</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #eef1f0; --surface: #ffffff; --ink: #172024; --ink-soft: #4b5a5d;
+    --ink-faint: #7c8a8c; --accent: #1f6f6b; --accent-soft: #dceae8;
+    --line: #d8ddda; --chip-bg: #e7e2d6; --code-bg: #f4f2ec;
+    --good: #2f7d4f; --good-soft: #dcede2; --bad: #a4432c; --bad-soft: #f3ded8;
+    --shadow: 0 1px 2px rgba(23,32,36,.06), 0 4px 16px rgba(23,32,36,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#12181a; --surface:#182022; --ink:#e8edec; --ink-soft:#9fb0ae;
+      --ink-faint:#6c7d7a; --accent:#59d1c7; --accent-soft:#1e3634;
+      --line:#2a3436; --chip-bg:#232a26; --code-bg:#1b2224;
+      --good:#5fbf85; --good-soft:#1c3327; --bad:#e08268; --bad-soft:#3a241e;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 20px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#12181a; --surface:#182022; --ink:#e8edec; --ink-soft:#9fb0ae;
+    --ink-faint:#6c7d7a; --accent:#59d1c7; --accent-soft:#1e3634;
+    --line:#2a3436; --chip-bg:#232a26; --code-bg:#1b2224;
+    --good:#5fbf85; --good-soft:#1c3327; --bad:#e08268; --bad-soft:#3a241e;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 20px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: 'Public Sans', -apple-system, sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  header.masthead { padding-bottom: 26px; border-bottom: 1px solid var(--line); margin-bottom: 36px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 38px; line-height: 1.15; text-wrap: balance; margin: 10px 0 12px; }
+  .dek { color: var(--ink-soft); font-size: 16px; max-width: 60ch; margin: 0; }
+
+  h2 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 24px; margin: 44px 0 6px; text-wrap: balance; }
+  h2 .num { font-family: 'IBM Plex Mono', monospace; color: var(--accent); font-size: 15px; margin-right: 8px; }
+  .lede { color: var(--ink-soft); font-size: 14.5px; margin: 0 0 18px; max-width: 62ch; }
+  p { margin: 0 0 14px; }
+  code { font-family: 'IBM Plex Mono', monospace; font-size: .88em; background: var(--chip-bg); border-radius: 3px; padding: .1em .35em; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card h3 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 19px; margin: 0 0 4px; }
+  .card .role { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 12px; }
+  .card p { font-size: 14.5px; margin-bottom: 10px; }
+  .card p:last-child { margin-bottom: 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .tag { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .02em; background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 3px 8px; }
+
+  .distinguish { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  @media (max-width: 560px) { .distinguish { grid-template-columns: 1fr; } }
+  .distinguish .box { border-radius: 8px; padding: 12px 14px; font-size: 13.5px; }
+  .distinguish .no { background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 30%, transparent); }
+  .distinguish .yes { background: var(--good-soft); border: 1px solid color-mix(in srgb, var(--good) 30%, transparent); }
+  .distinguish .label { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 4px; }
+  .distinguish .no .label { color: var(--bad); } .distinguish .yes .label { color: var(--good); }
+
+  .table-wrap { overflow-x: auto; margin: 6px 0 8px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; background: var(--surface); }
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--ink-soft); background: var(--code-bg); }
+  tr:last-child td { border-bottom: none; }
+  td.status-verified { color: var(--good); font-weight: 600; }
+  td.status-bad { color: var(--bad); font-weight: 600; }
+
+  .formula { font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; line-height: 1.8; overflow-x: auto; }
+  .formula .comment { color: var(--ink-faint); }
+
+  .steps { counter-reset: step; list-style: none; margin: 12px 0 4px; padding: 0; }
+  .steps li { counter-increment: step; position: relative; padding-left: 34px; margin-bottom: 12px; font-size: 14.5px; }
+  .steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-family: 'IBM Plex Mono', monospace; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+
+  footer { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-faint); font-family: 'IBM Plex Mono', monospace; }
+  footer a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Scry eval — finalized 2026-09-04</div>
+    <h1>Scoring Rubric</h1>
+    <p class="dek">How every teardown actually gets scored: one deterministic layer, four judged dimensions. This is the mechanics — for the reasoning and bias vocabulary behind each choice, see the companion <a href="https://claude.ai/code/artifact/38c2720a-d560-4d6a-a2a8-d82af5972e0a">Learning Log</a>.</p>
+  </header>
+
+  <h2><span class="num">01</span>Two layers, on purpose</h2>
+  <p class="lede">One layer can't hallucinate its own verdict. The other measures something no deterministic check can: whether the reasoning is actually good.</p>
+  <div class="card">
+    <p><strong>Layer 1 — Citation verification</strong> is not an LLM judgment. Every citation gets extracted by pattern-matching, then checked against the real archive (or checked for format-legitimacy, for web citations). It either finds the source or it doesn't.</p>
+    <p><strong>Layer 2 — Four LLM-judged dimensions</strong> compare two outputs head-to-head. These are inherently softer — reasoning quality doesn't reduce to a lookup — so every dimension carries explicit countermeasures against known judge failure modes (below).</p>
+    <p style="margin-bottom:0">The core thesis question — does Scry's grounding hold up — should be answered primarily from Layer 1. Layer 2 explains <em>how good</em> the analysis is once grounding is trusted; it shouldn't carry the up-or-down call alone.</p>
+  </div>
+
+  <h2><span class="num">02</span>Layer 1 — Citation Verification</h2>
+  <p class="lede"><code>scripts/eval/run-citation-verification.mjs</code> — every citation in every output, classified against real data.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Status</th><th>Means</th></tr></thead>
+      <tbody>
+        <tr><td class="status-verified">verified-verbatim</td><td>Exact-text match against the real archive content.</td></tr>
+        <tr><td class="status-verified">verified-paraphrase</td><td>Same substance, different wording — matched via word-overlap ≥ 0.55 against the real archive content.</td></tr>
+        <tr><td class="status-bad">misattributed</td><td>The content is real, but credited to the wrong speaker/source. <code>guest_to_host</code> is a named special case: a guest's real words attributed to Lenny.</td></tr>
+        <tr><td class="status-bad">fabricated</td><td>No real source found anywhere in the archive for this citation.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Decision gate, set before seeing results:</strong> Scry's overall citation precision (verified-verbatim + verified-paraphrase, as a share of all citations) below <strong>90%</strong> means fix the pipeline before anything else matters. Live numbers live in the <code>eval_citations</code> table, not reproduced here since this page is about method, not a snapshot that goes stale the next time the batch runs.</p>
+
+  <h2><span class="num">03</span>Layer 2 — The four judged dimensions</h2>
+  <p class="lede"><code>scripts/eval/judge-prompts.mjs</code> + <code>run-judgments.mjs</code> — pairwise, run through Claude and Gemini independently, every comparison run twice with positions swapped.</p>
+
+  <div class="card">
+    <h3>Framework Application</h3>
+    <div class="role">winner / tie</div>
+    <div class="distinguish">
+      <div class="box no"><span class="label">Doesn't count</span>Naming a framework ("this is a Porter's Five Forces situation") then stating only generic, already-obvious observations.</div>
+      <div class="box yes"><span class="label">Counts</span>Using the framework's structure to derive a conclusion specific to this product that wouldn't be reached without it.</div>
+    </div>
+    <p>More framework names used ≠ better. One framework applied rigorously beats five namechecked.</p>
+    <div class="tags"><span class="tag">position-swap</span><span class="tag">length-bias guard</span><span class="tag">formatting-bias guard</span><span class="tag">citation-grounding context</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Competitive Positioning</h3>
+    <div class="role">winner / tie</div>
+    <div class="distinguish">
+      <div class="box no"><span class="label">Doesn't count</span>Listing feature differences ("Competitor X has feature Y, this doesn't").</div>
+      <div class="box yes"><span class="label">Counts</span>Market segmentation + business-model contrast explaining <em>why</em> strategic bets diverge, not just that they do.</div>
+    </div>
+    <p>More competitors or features named ≠ better. Reward the strategic logic, not the list length.</p>
+    <div class="tags"><span class="tag">position-swap</span><span class="tag">length-bias guard</span><span class="tag">formatting-bias guard</span><span class="tag">citation-grounding context</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Coherence &amp; Actionability</h3>
+    <div class="role">winner / tie</div>
+    <div class="distinguish">
+      <div class="box no"><span class="label">Doesn't count</span>Generic statements applicable to any product in the category ("should focus on user experience").</div>
+      <div class="box yes"><span class="label">Counts</span>Organized, non-redundant, and specific enough that a reader could take one concrete next action from it.</div>
+    </div>
+    <p>Heavier formatting or more words ≠ more organized. Judged on logical structure and specificity only.</p>
+    <div class="tags"><span class="tag">position-swap</span><span class="tag">length-bias guard</span><span class="tag">formatting-bias guard</span><span class="tag">citation-grounding context</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Grounded Insight Value</h3>
+    <div class="role">score per arm, higher wins (gap must exceed 2 to count — otherwise tie)</div>
+    <p>Renamed from <code>insight_novelty</code> — novelty (is a claim unique) was only step one. Validity is no longer a judge's guess at plausibility; it's checked against real evidence before scoring. See the formula below.</p>
+    <div class="tags"><span class="tag">no position-swap needed</span><span class="tag">length-bias guard</span><span class="tag">live web fact-check</span><span class="tag">confident-fabrication penalty</span></div>
+  </div>
+
+  <h2><span class="num">04</span>How Grounded Insight Value is actually computed</h2>
+  <ol class="steps">
+    <li><strong>Extract</strong> every distinct strategic claim from each output independently.</li>
+    <li><strong>Dedupe</strong> — a separate judge call identifies which claims from each side are the same point made differently, so paraphrasing can't fake uniqueness. Only claims with no equivalent on the other side proceed.</li>
+    <li><strong>Classify groundedness</strong> for every surviving unique claim, programmatically, not judge-guessed: check the real archive first (same lookup citation-verification uses); if nothing matches, run a live web search fact-check.</li>
+    <li><strong>Score usefulness</strong> (1–5, judge-rated) for every claim — grounded or not. An ungrounded claim's usefulness is still needed, because it determines the size of the penalty below.</li>
+    <li><strong>Reduce to one score per arm.</strong></li>
+  </ol>
+  <div class="formula">validity by tier: <span class="comment">// programmatic, not judge-guessed</span>
+  archive_verbatim   = 5
+  archive_paraphrase = 3
+  web_corroborated   = 4
+  ungrounded         = 0  <span class="comment">// contradicted, or no evidence found anywhere</span>
+
+score(arm) = Σ (validity × usefulness)   <span class="comment">// for every grounded claim</span>
+           − Σ (usefulness × 3)          <span class="comment">// for every ungrounded claim — the penalty weight</span>
+
+winner = higher score, unless |scoreA − scoreB| ≤ 2  <span class="comment">// then: tie</span></div>
+  <p style="margin-top:14px">The penalty weight (3) and tie threshold (2) are starting heuristics, not validated constants — tune once a full batch of real score distributions exists.</p>
+
+  <h2><span class="num">05</span>Cross-cutting reliability measures</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Measure</th><th>Guards against</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Position swapping</td><td>Judges favoring whichever output is shown first</td><td class="status-verified">Applied to all 3 comparison dimensions</td></tr>
+        <tr><td>Dual judge families (Claude + Gemini)</td><td>A model rating its own family's outputs favorably</td><td class="status-bad">Gemini pending — key just fixed, not yet run at scale</td></tr>
+        <tr><td>Formatting-bias warning</td><td>Heavier markdown reading as "more organized"</td><td class="status-verified">In every comparison prompt</td></tr>
+        <tr><td>Length-bias warning</td><td>Longer outputs reading as "more thorough"</td><td class="status-verified">Added 2026-09-04, in every comparison + usefulness prompt</td></tr>
+        <tr><td>Citation-grounding context</td><td>A judge trusting confident prose over what's actually verified</td><td class="status-verified">Fed into all 3 comparison dimensions from Layer 1's real results</td></tr>
+        <tr><td>Idempotency</td><td>Re-running the batch silently re-billing or overwriting prior verdicts</td><td class="status-verified">Skips anything already judged, keyed on product/arms/dimension/judge/position</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2><span class="num">06</span>Known open gaps — not fixed, flagged</h2>
+  <div class="card">
+    <p><strong>Self-preference residual.</strong> The Claude judge backend uses <code>claude-sonnet-4-5</code> — the same model that generated the <code>claude_vanilla</code>/<code>claude_web</code> arms it scores. Read a Claude-only verdict on those comparisons as provisional until Gemini's independent verdict exists for the same pair.</p>
+    <p><strong>Lexical-only archive matching.</strong> Both citation-verification and Grounded Insight Value's groundedness check use word-overlap matching, not real semantic search. A claim marked "ungrounded" may be a genuine fabrication, or genuinely archive-sourced material worded too differently for the matcher to find. Deliberately not fixed pre-emptively — see the Learning Log's retrieval-techniques entry for why.</p>
+    <p style="margin-bottom:0"><strong>Inter-rater agreement not yet computed.</strong> Once Gemini is producing real results, comparing how often the two judges agree per dimension is a cheap, real reliability signal that doesn't exist yet.</p>
+  </div>
+
+  <footer>scripts/eval/judge-prompts.mjs · run-judgments.mjs · run-citation-verification.mjs — see <a href="https://claude.ai/code/artifact/38c2720a-d560-4d6a-a2a8-d82af5972e0a">Learning Log</a> for the concepts behind each choice</footer>
+</div>
