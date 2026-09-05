@@ -21,6 +21,8 @@
 // never been exercised because every prior test called generateContent
 // directly with a hardcoded model name, bypassing discovery entirely.
 
+import { recordUsage, assertUnderBudget } from "./budget.mjs";
+
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 let _modelPromise;
@@ -105,6 +107,10 @@ export function createGeminiBackend(apiKey = process.env.GEMINI_API_KEY) {
   return {
     name: "gemini",
     async complete(promptText) {
+      // Pre-flight check — same hard ceiling Claude calls respect, now that
+      // billing is active on this key too (it's no longer free-tier-capped,
+      // which also means it's no longer free).
+      assertUnderBudget();
       const model = await getModel(apiKey);
       let lastError;
       for (let attempt = 0; attempt <= RATE_LIMIT_BACKOFFS_MS.length; attempt++) {
@@ -118,6 +124,10 @@ export function createGeminiBackend(apiKey = process.env.GEMINI_API_KEY) {
         });
         if (res.ok) {
           const data = await res.json();
+          if (data.usageMetadata) {
+            recordUsage("gemini", data.usageMetadata.promptTokenCount, data.usageMetadata.candidatesTokenCount);
+          }
+          assertUnderBudget();
           const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
           if (!text) throw new Error(`Gemini returned no text: ${JSON.stringify(data)}`);
           return text;

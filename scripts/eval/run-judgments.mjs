@@ -37,7 +37,8 @@ import { createClient } from "@supabase/supabase-js";
 import { createClaudeBackend } from "./lib/claude-judge.mjs";
 import { createGeminiBackend } from "./lib/gemini.mjs";
 import { archiveLookup } from "./lib/archive-lookup.mjs";
-import { factCheckClaim } from "./lib/web-fact-check.mjs";
+import { factCheckClaims } from "./lib/web-fact-check.mjs";
+import { BudgetExceededError, currentSpend } from "./lib/budget.mjs";
 import {
   frameworkApplicationPrompt,
   competitivePositioningPrompt,
@@ -81,6 +82,15 @@ const NOVELTY_TIE_EPSILON = 2;
 // bad"). 3x is a starting heuristic, not a validated weight; tune once real
 // score distributions exist across a full batch.
 const NOVELTY_PENALTY_WEIGHT = 3;
+
+// Hard cap on claims considered per side, enforced here in code — never
+// trust judge-prompts.mjs's MAX_CLAIMS instruction alone as the only limit.
+// One real output produced 147 "distinct claims" with no cap anywhere
+// (2026-09-05 incident — every ungrounded claim triggered its own live
+// web-search API call, and this run's claim counts alone made that
+// unbounded; see docs/scry-eval-status.md). Must match judge-prompts.mjs's
+// MAX_CLAIMS.
+const MAX_CLAIMS = 15;
 
 // ---- pre-judge sanitization (orchestration-design.md §3) ----
 
@@ -222,40 +232,67 @@ async function runStandardDimension(ctx, dim, textA, textB) {
 // §6, redesigned 2026-09-04 per judge-prompts.mjs's claimUsefulnessPrompt
 // header) ----
 
-// Classifies one extracted claim as grounded (real, checkable) or not,
-// without asking a judge to guess. Archive first (free reuse of the same
-// lookup citation-verification already runs), then a live web fact-check
-// only if the archive has nothing — matches the tiers citation-verification
-// already uses (verbatim > paraphrase) plus a new web-corroborated tier.
-async function classifyGroundedness(claimText, product) {
+// Archive check only — free DB lookup, no API cost, safe to run per-claim.
+// Returns null (not found) rather than a verdict, so the caller knows which
+// claims still need a live web check.
+async function classifyArchiveGroundedness(claimText) {
   const archiveResults = await archiveLookup({ claim_text: claimText, claimed_speaker: null });
-  if (archiveResults.length > 0) {
-    const top = archiveResults[0];
-    if (top.match_type === "exact") {
-      return { grounded: true, tier: "archive_verbatim", validity: 5, evidence: top.episode_or_source_ref };
-    }
-    return { grounded: true, tier: "archive_paraphrase", validity: 3, evidence: top.episode_or_source_ref };
+  if (archiveResults.length === 0) return null;
+  const top = archiveResults[0];
+  if (top.match_type === "exact") {
+    return { grounded: true, tier: "archive_verbatim", validity: 5, evidence: top.episode_or_source_ref };
   }
-  try {
-    const raw = await factCheckClaim(claimText, product);
-    const verdict = parseJudgeJSON(raw);
-    if (verdict.status === "corroborated") {
-      return { grounded: true, tier: "web_corroborated", validity: 4, evidence: verdict.evidence };
-    }
-    return { grounded: false, tier: verdict.status === "contradicted" ? "web_contradicted" : "ungrounded", validity: 0, evidence: verdict.evidence };
-  } catch (e) {
-    // The fact-check call itself failed (rate limit, bad JSON, etc.) —
-    // treat as unverifiable rather than crashing the whole dimension over
-    // one claim's fact-check hiccup.
-    return { grounded: false, tier: "unverifiable", validity: 0, evidence: `fact-check failed: ${e.message}` };
-  }
+  return { grounded: true, tier: "archive_paraphrase", validity: 3, evidence: top.episode_or_source_ref };
 }
 
-async function scoreClaimSet(claims, product, backend) {
-  const graded = [];
-  for (const claim of claims) {
-    graded.push({ claim, ...(await classifyGroundedness(claim, product)) });
+function classifyWebVerdict(verdict) {
+  if (verdict.status === "corroborated") {
+    return { grounded: true, tier: "web_corroborated", validity: 4, evidence: verdict.evidence };
   }
+  return { grounded: false, tier: verdict.status === "contradicted" ? "web_contradicted" : "ungrounded", validity: 0, evidence: verdict.evidence };
+}
+
+// Rewritten 2026-09-05: previously called classifyGroundedness (and
+// therefore factCheckClaim) once per claim in a loop — with claim counts
+// unbounded, that meant up to 100+ individual live web-search API calls for
+// a single output. Now: hard-caps to MAX_CLAIMS first, resolves every claim
+// against the free archive lookup, then makes AT MOST ONE batched
+// factCheckClaims call covering every claim the archive didn't cover — not
+// one call per claim.
+async function scoreClaimSet(claims, product, backend) {
+  const capped = claims.slice(0, MAX_CLAIMS);
+  const graded = new Array(capped.length);
+  const needsWebCheck = [];
+
+  for (let i = 0; i < capped.length; i++) {
+    const archiveResult = await classifyArchiveGroundedness(capped[i]);
+    if (archiveResult) {
+      graded[i] = { claim: capped[i], ...archiveResult };
+    } else {
+      needsWebCheck.push({ index: i, claim: capped[i] });
+    }
+  }
+
+  if (needsWebCheck.length > 0) {
+    try {
+      const raw = await factCheckClaims(needsWebCheck.map((c) => c.claim), product);
+      const parsed = parseJudgeJSON(raw);
+      const byClaim = new Map((parsed.results ?? []).map((r) => [r.claim, r]));
+      for (const { index, claim } of needsWebCheck) {
+        const verdict = byClaim.get(claim);
+        graded[index] = verdict
+          ? { claim, ...classifyWebVerdict(verdict) }
+          : { claim, grounded: false, tier: "unverifiable", validity: 0, evidence: "fact-check response missing this claim" };
+      }
+    } catch (e) {
+      // The batched fact-check call itself failed — treat every claim that
+      // needed it as unverifiable rather than crashing the whole dimension.
+      for (const { index, claim } of needsWebCheck) {
+        graded[index] = { claim, grounded: false, tier: "unverifiable", validity: 0, evidence: `fact-check failed: ${e.message}` };
+      }
+    }
+  }
+
   if (graded.length === 0) return graded;
   const scored = (await callJudgeJSON(backend, claimUsefulnessPrompt(graded.map((g) => g.claim), product))).claims ?? [];
   for (let i = 0; i < graded.length; i++) {
@@ -281,8 +318,11 @@ async function runGroundedInsightValueDimension(ctx, textA, textB) {
     return;
   }
 
-  const claimsA = (await callJudgeJSON(backend, claimExtractionPrompt(textA))).claims ?? [];
-  const claimsB = (await callJudgeJSON(backend, claimExtractionPrompt(textB))).claims ?? [];
+  // Hard-capped here too, not just inside scoreClaimSet — an uncapped
+  // claims array would still make claimEquivalencePrompt's comparison call
+  // itself needlessly large and expensive before grounding even starts.
+  const claimsA = ((await callJudgeJSON(backend, claimExtractionPrompt(textA))).claims ?? []).slice(0, MAX_CLAIMS);
+  const claimsB = ((await callJudgeJSON(backend, claimExtractionPrompt(textB))).claims ?? []).slice(0, MAX_CLAIMS);
 
   let uniqueToA = claimsA;
   let uniqueToB = claimsB;
@@ -344,12 +384,17 @@ async function orchestrateJudgments(runA, runB, backends) {
       try {
         await runStandardDimension(ctx, dim, textA, textB);
       } catch (e) {
+        // A budget overrun must stop the whole run, not just this one
+        // dimension — re-throw past the ordinary per-dimension catch below
+        // so it propagates all the way to main() and kills the process.
+        if (e instanceof BudgetExceededError) throw e;
         console.error(`  [fail] ${dim.name} / ${backend.name}: ${e.message}`);
       }
     }
     try {
       await runGroundedInsightValueDimension(ctx, textA, textB);
     } catch (e) {
+      if (e instanceof BudgetExceededError) throw e;
       console.error(`  [fail] grounded_insight_value / ${backend.name}: ${e.message}`);
     }
   }
@@ -369,6 +414,11 @@ async function fetchLatestRuns(products) {
     if (!latest.has(key)) latest.set(key, run);
   }
   return latest;
+}
+
+function logSpend() {
+  const s = currentSpend();
+  console.log(`\n[budget] estimated spend: $${s.spentUsd.toFixed(2)} of $${s.budgetUsd.toFixed(2)} ceiling (claude: $${s.perVendor.claude.toFixed(2)}, gemini: $${s.perVendor.gemini.toFixed(2)}) across ${s.callCount} API calls.`);
 }
 
 async function main() {
@@ -393,10 +443,12 @@ async function main() {
     }
   }
 
+  logSpend();
   console.log("\nDone.");
 }
 
 main().catch((err) => {
+  logSpend();
   console.error(err);
   process.exit(1);
 });

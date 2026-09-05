@@ -105,10 +105,20 @@ The JSON object must have exactly these fields:
 // part is whether a unique claim is actually TRUE, not just unique and
 // confidently stated. "Novelty" undersold that; "grounded insight value" is
 // the actual construct: unique + verified + useful.
+// MAX_CLAIMS mirrors the hard cap run-judgments.mjs enforces in code after
+// this call returns (never trust a prompt instruction alone as the only
+// limit — see the 2026-09-05 incident note there). Stated here too so the
+// model's own selection, not a blind slice of whatever order it happened to
+// list things in, decides which claims survive when there are more than
+// this many candidates.
+const MAX_CLAIMS = 15;
+
 export function claimExtractionPrompt(output) {
   return `You are extracting the distinct strategic claims made in a competitive-analysis output. A "claim" is a discrete assertion about the product, its market, its competitors, or its strategy that could in principle be true or false, or judged more or less useful — not a section header, not a formatting element, and not a restatement of a fact directly given in the prompt (e.g. the product's name or category).
 
-Read the output below and extract every distinct strategic claim it makes. Split compound sentences into separate claims if they assert more than one thing. Do not editorialize, rate, or comment on the claims — only extract and restate each one concisely in your own words, preserving its specific content (do not generalize it into something vaguer than what was written).
+Read the output below and extract its strategic claims. Do not editorialize, rate, or comment on the claims — only extract and restate each one concisely in your own words, preserving its specific content (do not generalize it into something vaguer than what was written).
+
+Extract AT MOST ${MAX_CLAIMS} claims. If the output makes more than ${MAX_CLAIMS} distinct assertions, select the ${MAX_CLAIMS} most substantive and specific ones — prioritize claims that are concrete and decision-relevant over ones that are generic, minor, or largely restate another claim in different words. Do not split every compound sentence into separate claims just to raise the count; only split when the two halves are genuinely independent assertions that could be true or false separately.
 
 ${FORMATTING_BIAS_WARNING}
 
