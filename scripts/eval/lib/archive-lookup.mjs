@@ -56,6 +56,42 @@ function wordOverlapConfidence(claimText, candidateText) {
   return overlap / a.size; // fraction of the claim's significant words found in the candidate
 }
 
+// Finds the occurrence (of any of the claim's significant words) whose
+// surrounding window contains the most of the claim's OTHER significant
+// words too, instead of just the first word's first occurrence anywhere in
+// the document. Replaces a real bug (see the call site) — a lone word
+// appearing early in a long transcript is not evidence that's where the
+// claim's content actually lives.
+function bestMatchPosition(content, words) {
+  const lower = content.toLowerCase();
+  const uniqueWords = [...new Set(words)];
+  if (uniqueWords.length === 0) return -1;
+
+  const occurrences = [];
+  for (const w of uniqueWords) {
+    let idx = lower.indexOf(w);
+    while (idx !== -1) {
+      occurrences.push(idx);
+      idx = lower.indexOf(w, idx + 1);
+    }
+  }
+  if (occurrences.length === 0) return -1;
+
+  const WINDOW = 400;
+  let bestIdx = occurrences[0];
+  let bestScore = -1;
+  for (const idx of occurrences) {
+    const windowText = lower.slice(Math.max(0, idx - WINDOW), Math.min(lower.length, idx + WINDOW));
+    let score = 0;
+    for (const w of uniqueWords) if (windowText.includes(w)) score++;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  }
+  return bestIdx;
+}
+
 const HOST_NAME_VARIANTS = /^lenny(\s+rachitsky)?$/i;
 
 // Find the nearest speaker tag ("**Name** (00:00:00)" or "**Name**:")
@@ -140,14 +176,19 @@ export async function archiveLookup({ claim_text, claimed_speaker }) {
       matchType = "semantic";
       confidence = Math.min(0.95, overlap);
       matchedSnippet = cand.headline; // best available excerpt when not exact
-      // Best-effort position for speaker lookup: locate the first
-      // significant claim word actually present in the full content.
+      // Position for speaker lookup, fixed 2026-09-06: this used to take the
+      // first occurrence of the first significant claim word anywhere in the
+      // whole transcript — in a multi-speaker document that's essentially
+      // arbitrary (common words recur throughout, early occurrences skew
+      // toward the host's intro). Confirmed concretely: a Katie Dill quote,
+      // verified verbatim in the transcript, got resolved to "Lenny" because
+      // an earlier unrelated occurrence of one claim word sat near the
+      // transcript's start. Now: find the position whose surrounding window
+      // contains the most of the claim's OTHER significant words too — the
+      // real matching passage should have several cluster together, not
+      // just one coincidental hit — and use that instead.
       if (full?.content) {
-        const words = significantWords(claim_text);
-        for (const w of words) {
-          const idx = full.content.toLowerCase().indexOf(w);
-          if (idx !== -1) { matchIdx = idx; break; }
-        }
+        matchIdx = bestMatchPosition(full.content, significantWords(claim_text));
       }
     }
 
