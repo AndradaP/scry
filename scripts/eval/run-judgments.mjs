@@ -90,7 +90,7 @@ const NOVELTY_PENALTY_WEIGHT = 3;
 // web-search API call, and this run's claim counts alone made that
 // unbounded; see docs/scry-eval-status.md). Must match judge-prompts.mjs's
 // MAX_CLAIMS.
-const MAX_CLAIMS = 15;
+const MAX_CLAIMS = 20;
 
 // ---- pre-judge sanitization (orchestration-design.md §3) ----
 
@@ -441,9 +441,10 @@ async function main() {
       }
       await orchestrateJudgments(runA, runB, backends);
     }
+    console.log(`\n=== ${product} done ===`);
+    logSpend();
   }
 
-  logSpend();
   console.log("\nDone.");
 }
 

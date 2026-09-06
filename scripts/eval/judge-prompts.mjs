@@ -111,7 +111,7 @@ The JSON object must have exactly these fields:
 // model's own selection, not a blind slice of whatever order it happened to
 // list things in, decides which claims survive when there are more than
 // this many candidates.
-const MAX_CLAIMS = 15;
+const MAX_CLAIMS = 20;
 
 export function claimExtractionPrompt(output) {
   return `You are extracting the distinct strategic claims made in a competitive-analysis output. A "claim" is a discrete assertion about the product, its market, its competitors, or its strategy that could in principle be true or false, or judged more or less useful — not a section header, not a formatting element, and not a restatement of a fact directly given in the prompt (e.g. the product's name or category).
