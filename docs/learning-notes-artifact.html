@@ -234,6 +234,7 @@
       <li><a href="#e8">8 · RAG, embeddings &amp; knowledge graphs</a></li>
       <li><a href="#e9">9 · LLM-as-judge evaluation</a></li>
       <li><a href="#e10">10 · Is Scry's retrieval RAG?</a></li>
+      <li><a href="#e11">11 · Embeddings vs. knowledge graphs</a></li>
     </ol>
   </nav>
 
@@ -471,6 +472,38 @@ flowchart TD
       <p><strong>Where the confusion comes from:</strong> the 2020 paper that coined "RAG" (Lewis et al.) happened to use dense embeddings for its retrieval step, and that pairing became the default association in a lot of people's minds. Industry usage broadened well past that specific implementation choice since then — production systems built on BM25/full-text search, long before "RAG" was a common term, get retroactively (and currently) described as RAG systems too. When the distinction matters, people say "lexical RAG" or "keyword RAG" versus "vector RAG" specifically <em>because</em> the retrieval technique varies independently of whether something counts as RAG at all.</p>
 
       <p><strong>Scry's own pipeline, mapped onto this:</strong> Haiku generates search queries → Postgres full-text search over <code>lenny_corpus</code> <strong>and</strong> Exa web search run → Sonnet synthesizes using whatever came back. That's retrieval feeding augmented generation — the RAG pattern — implemented with lexical retrieval (plus a second, separate retrieval source, Exa, which <em>does</em> use real embeddings-based semantic search under the hood — see entry 8's note on the quality asymmetry this creates between Scry's two grounding sources). Turning on <code>pgvector</code> later (entry 8) would change <em>which</em> retrieval technique sits inside the pattern; it would not be the moment Scry "becomes" a RAG system — it already is one.</p>
+    </section>
+
+    <section class="entry" id="e11">
+      <div class="entry-head"><span class="entry-num">11</span><h2>Embeddings vs. knowledge graphs — the mechanisms, not just the definitions</h2></div>
+      <p class="context"><strong>Context:</strong> 2026-09-06, a repeated question across several sessions — entries 8 and 10 covered <em>what</em> these two retrieval techniques are and <em>when</em> you'd reach for each, but not the actual mechanics: how does an embedding model learn what counts as "similar," what precisely is a knowledge-graph edge, and how does either one actually get built.</p>
+
+      <h3>Embeddings — how the model learns what's similar</h3>
+      <p>Two training stages stack together. Neither involves anyone hand-labeling "these two phrases are synonyms."</p>
+      <p><strong>Stage 1 — pretraining already builds in rough meaning, for free.</strong> An embedding model starts as (or sits on top of) a transformer trained the same way an LLM is: predict the next word, across a huge corpus. To get good at that job, the model is forced to implicitly learn that "happy" and "glad" behave near-interchangeably in context, that "usage-based" and "consumption-based" pricing get discussed with the same surrounding vocabulary (metered, per-unit, scale, billing). Nobody labels any of this — it falls out of the statistics of predicting what word comes next, at scale.</p>
+      <p><strong>Stage 2 — contrastive training sharpens that into a real similarity space.</strong> Pretraining gives good <em>per-word</em> representations but not whole-passage similarity. So there's a second pass: take pairs of text known or assumed to be related (a question and its right answer, two paraphrases, a title and a passage from inside it) — <strong>positive pairs</strong>. Mix in random unrelated text — <strong>negative pairs</strong>. Train the model so positive-pair vectors get pulled close together (cosine similarity up) and negative-pair vectors get pushed apart. Over millions of these pairs (mined automatically from link structure, click logs, QA and paraphrase datasets), the model learns a general similarity space calibrated by contrast, not by rule.</p>
+      <p>The result is a vector — a list of numbers — with <strong>no interpretable meaning attached to any single dimension</strong>. You can measure distance between two vectors and get a similarity score. You cannot point at <em>why</em> they're close, the way you can point at a labeled fact in a graph.</p>
+
+      <h3>Knowledge graphs — what an edge is, and the real build pipeline</h3>
+      <p>An edge is not a number. It's an explicit, typed, asserted fact: <strong>source node —relationship type→ target node</strong>. <em>Madhavan Ramanujam —discussed→ value-based pricing</em> is a literal, readable sentence, not a distance measurement — you could read the whole graph out loud as a list of facts.</p>
+
+      <figure class="diagram">
+        <pre class="mermaid">
+flowchart TD
+  A["1. Design the ontology by hand<br/>(node types: Person, Concept, Company...<br/>edge types: discussed, applies_to...)"]
+  B["2. Extract triples from source text<br/>(NER/RE models, or an LLM prompted to<br/>output subject-relation-object triples)"]
+  C["3. Entity resolution<br/>('Madhavan Ramanujam' = 'Madhavan' =<br/>'the pricing consultant' -&gt; one node)"]
+  D["4. Store in a graph DB<br/>(Neo4j, or an edges table --<br/>built for N-hop traversal queries)"]
+  E["5. Quality-check the extraction<br/>(an LLM can mislabel a relationship<br/>the same way it can hallucinate a citation)"]
+  A --> B --> C --> D --> E
+        </pre>
+        <figcaption>The knowledge-graph construction pipeline — every step here is a deliberate build choice, not something learned from raw text the way an embedding space is</figcaption>
+      </figure>
+
+      <p>Walking through the steps: (1) nothing is learned automatically here — a human decides up front what kinds of nodes exist and what relationships are allowed between which kinds; get this wrong and the graph is either too sparse or too tangled to query. (2) something has to read the raw source material and produce triples matching that ontology — historically dedicated NER/RE models, in practice today often an LLM prompted directly to emit structured triples from a passage, the same shape as this codebase's citation-verification work, generalized. (3) the same real entity gets referred to differently across sources, and unresolved duplicates fragment the graph into disconnected islands that traversal queries silently miss. (4) the triples land in something built for "find everything connected to X within N hops," not a table optimized for row lookups. (5) LLM-based extraction needs the same verification discipline already built into this eval — it can invent a relationship exactly the way it can invent a citation.</p>
+
+      <h3>The contrast to hold onto</h3>
+      <p>Embeddings are <em>learned automatically</em> from raw text via contrastive training and give you continuous, uninterpretable "these are near each other" — no reason attached. Knowledge graphs are <em>manually designed</em> (the ontology) plus <em>populated</em> by an extraction process, and give you discrete, labeled, human-readable facts you can trace and explain. That's the entire reason a knowledge graph can answer "why is this relevant" and an embedding search can only answer "this is close."</p>
     </section>
 
   </main>

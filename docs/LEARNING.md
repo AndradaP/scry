@@ -185,3 +185,38 @@ flowchart TD
 **Where the confusion comes from:** the 2020 paper that coined "RAG" (Lewis et al.) happened to use dense embeddings for its retrieval step, and that pairing became the default association in a lot of people's minds. Industry usage broadened well past that specific implementation choice since then — production systems built on BM25/full-text search, long before "RAG" was a common term, get retroactively (and currently) described as RAG systems too. When the distinction matters, people say "lexical RAG" or "keyword RAG" versus "vector RAG" specifically *because* the retrieval technique varies independently of whether something counts as RAG at all.
 
 **Scry's own pipeline, mapped onto this:** Haiku generates search queries → Postgres full-text search over `lenny_corpus` **and** Exa web search run → Sonnet synthesizes using whatever came back. That's retrieval feeding augmented generation — the RAG pattern — implemented with lexical retrieval (plus a second, separate retrieval source, Exa, which *does* use real embeddings-based semantic search under the hood — see entry 8's note on the quality asymmetry this creates between Scry's two grounding sources). Turning on `pgvector` later (entry 8) would change *which* retrieval technique sits inside the pattern; it would not be the moment Scry "becomes" a RAG system — it already is one.
+
+---
+
+## 11. Embeddings vs. Knowledge Graphs — the Mechanisms, Not Just the Definitions
+**Context:** 2026-09-06, a repeated question across several sessions — entries 8 and 10 covered *what* these two retrieval techniques are and *when* you'd reach for each, but not the actual mechanics: how does an embedding model learn what counts as "similar," what precisely is a knowledge-graph edge, and how does either one actually get built.
+
+### Embeddings — how the model learns what's similar
+
+Two training stages stack together. Neither involves anyone hand-labeling "these two phrases are synonyms."
+
+**Stage 1 — pretraining already builds in rough meaning, for free.** An embedding model starts as (or sits on top of) a transformer trained the same way an LLM is: predict the next word, across a huge corpus. To get good at that job, the model is forced to implicitly learn that "happy" and "glad" behave near-interchangeably in context, that "usage-based" and "consumption-based" pricing get discussed with the same surrounding vocabulary (metered, per-unit, scale, billing). Nobody labels any of this — it falls out of the statistics of predicting what word comes next, at scale.
+
+**Stage 2 — contrastive training sharpens that into a real similarity space.** Pretraining gives good *per-word* representations but not whole-passage similarity. So there's a second pass: take pairs of text known or assumed to be related (a question and its right answer, two paraphrases, a title and a passage from inside it) — **positive pairs**. Mix in random unrelated text — **negative pairs**. Train the model so positive-pair vectors get pulled close together (cosine similarity up) and negative-pair vectors get pushed apart. Over millions of these pairs (mined automatically from link structure, click logs, QA and paraphrase datasets), the model learns a general similarity space calibrated by contrast, not by rule.
+
+The result is a vector — a list of numbers — with **no interpretable meaning attached to any single dimension**. You can measure distance between two vectors and get a similarity score. You cannot point at *why* they're close, the way you can point at a labeled fact in a graph.
+
+### Knowledge graphs — what an edge is, and the real build pipeline
+
+An edge is not a number. It's an explicit, typed, asserted fact: **source node —relationship type→ target node**. *Madhavan Ramanujam —discussed→ value-based pricing* is a literal, readable sentence, not a distance measurement — you could read the whole graph out loud as a list of facts.
+
+```mermaid
+flowchart TD
+  A["1. Design the ontology by hand<br/>(node types: Person, Concept, Company…<br/>edge types: discussed, applies_to…)"]
+  B["2. Extract triples from source text<br/>(NER/RE models, or an LLM prompted to<br/>output (subject, relation, object) triples)"]
+  C["3. Entity resolution<br/>('Madhavan Ramanujam' = 'Madhavan' =<br/>'the pricing consultant' → one node)"]
+  D["4. Store in a graph DB<br/>(Neo4j, or an edges table —<br/>built for N-hop traversal queries)"]
+  E["5. Quality-check the extraction<br/>(an LLM can mislabel a relationship<br/>the same way it can hallucinate a citation)"]
+  A --> B --> C --> D --> E
+```
+
+Walking through the steps: (1) nothing is learned automatically here — a human decides up front what kinds of nodes exist and what relationships are allowed between which kinds; get this wrong and the graph is either too sparse or too tangled to query. (2) something has to read the raw source material and produce triples matching that ontology — historically dedicated NER/RE models, in practice today often an LLM prompted directly to emit structured triples from a passage, the same shape as this codebase's citation-verification work, generalized. (3) the same real entity gets referred to differently across sources, and unresolved duplicates fragment the graph into disconnected islands that traversal queries silently miss. (4) the triples land in something built for "find everything connected to X within N hops," not a table optimized for row lookups. (5) LLM-based extraction needs the same verification discipline already built into this eval — it can invent a relationship exactly the way it can invent a citation.
+
+### The contrast to hold onto
+
+Embeddings are *learned automatically* from raw text via contrastive training and give you continuous, uninterpretable "these are near each other" — no reason attached. Knowledge graphs are *manually designed* (the ontology) plus *populated* by an extraction process, and give you discrete, labeled, human-readable facts you can trace and explain. That's the entire reason a knowledge graph can answer "why is this relevant" and an embedding search can only answer "this is close."
