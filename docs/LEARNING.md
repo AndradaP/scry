@@ -217,6 +217,19 @@ flowchart TD
 
 Walking through the steps: (1) nothing is learned automatically here — a human decides up front what kinds of nodes exist and what relationships are allowed between which kinds; get this wrong and the graph is either too sparse or too tangled to query. (2) something has to read the raw source material and produce triples matching that ontology — historically dedicated NER/RE models, in practice today often an LLM prompted directly to emit structured triples from a passage, the same shape as this codebase's citation-verification work, generalized. (3) the same real entity gets referred to differently across sources, and unresolved duplicates fragment the graph into disconnected islands that traversal queries silently miss. (4) the triples land in something built for "find everything connected to X within N hops," not a table optimized for row lookups. (5) LLM-based extraction needs the same verification discipline already built into this eval — it can invent a relationship exactly the way it can invent a citation.
 
+### Step 1, expanded — must the ontology be hand-designed?
+**Context:** 2026-09-06, following directly from the pipeline diagram above — what "ontology" actually means, precisely, and whether step 1 has to be fully manual.
+
+**Ontology, precisely:** the schema for the graph — allowed node types (Person, Company, Framework, Concept, Episode) and allowed relationship types (discussed, applies_to, works_at, is_a), plus which relationship types can connect which node types (`discussed` makes sense Person → Concept, not Company → Company). Same relationship a database schema has to its rows: the ontology is the table/column definitions; the actual graph is the data sitting in it.
+
+Three real options, not just "manual or not":
+
+- **Fully manual** — domain experts explicitly define the schema by hand. The classic approach for production knowledge graphs, especially where precision matters. High quality, slow, requires real domain judgment.
+- **Fully automated ("ontology learning")** — statistical/NLP methods, or an LLM, propose candidate types by noticing recurring patterns in a corpus. Fast, but tends to produce messy results left unsupervised — e.g. separate types for "Founder," "CEO," and "Co-founder" where a human would just use one `Person` node with a role attribute. Automated methods are good at proposing candidates, not at judging what's actually useful for the graph's purpose.
+- **Semi-automated — the realistic middle ground and what's actually common in practice:** an LLM scans a representative sample of the corpus and drafts candidate node/edge types, a human reviews and prunes before extraction runs at scale. Same shape as the rest of this eval — model proposes, a verification pass decides what survives — one step earlier than usual, applied to designing the schema instead of checking a citation.
+
+Two more things worth knowing: published, reusable ontologies exist (schema.org's vocabulary, Wikidata's property system, domain-specific ones) — it's common to extend or restrict one of those rather than invent a vocabulary from scratch. And ontology design is rarely a one-time decision regardless of approach — it typically gets revised as real extracted data surfaces cases the original schema didn't anticipate.
+
 ### The contrast to hold onto
 
 Embeddings are *learned automatically* from raw text via contrastive training and give you continuous, uninterpretable "these are near each other" — no reason attached. Knowledge graphs are *manually designed* (the ontology) plus *populated* by an extraction process, and give you discrete, labeled, human-readable facts you can trace and explain. That's the entire reason a knowledge graph can answer "why is this relevant" and an embedding search can only answer "this is close."
