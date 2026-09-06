@@ -718,6 +718,52 @@ async function callMainModel(systemPrompt: string, userMessage: string): Promise
   }
 }
 
+// Zero-coverage fallback: when the archive has no real hits for a product
+// by name (small/unknown companies), pull category + business-model signal
+// out of the web search results instead, so a follow-up archive query can
+// surface a real ANALOGOUS discussion (e.g. usage-based pricing at a
+// different vertical SaaS company) rather than leaving the model with
+// nothing — which is what led it to fabricate archive citations for
+// products like Arena Physica. Returns null when the web results don't
+// give it enough to work with.
+async function extractCategorySignal(
+  productName: string,
+  webContext: string,
+): Promise<string | null> {
+  const prompt = `You are preparing a fallback search query for a product-strategy podcast/newsletter archive.
+
+The archive has no coverage of "${productName}" by name — it's a small or obscure company. Below are web search results about it. Extract its product category, business model, and market segment, then produce a pipe-delimited keyword query (4-6 terms) that would surface ANALOGOUS discussions in the archive — other companies in the same category or with the same business model — even though the archive never mentions "${productName}" itself.
+
+Do not include "${productName}" or any competitor's proper name in the query. Use general category/business-model/market terms only, e.g. "vertical SaaS|usage-based pricing|clinical software|physical therapy".
+
+WEB RESULTS:
+${webContext.slice(0, 4000)}
+
+Output ONLY the pipe-delimited query string. No explanation, no markdown, no quotes. If the web results give you nothing to work with, output exactly: UNKNOWN`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 100,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  const data = await response.json();
+  const text = data?.content?.[0]?.text?.trim();
+  if (!text || text === "UNKNOWN" || !text.includes("|")) {
+    if (text && text !== "UNKNOWN") console.error("extractCategorySignal unexpected output:", text);
+    return null;
+  }
+  return text;
+}
+
 async function searchWeb(query: string): Promise<{ text: string; firstUrl: string }> {
   const apiKey = Deno.env.get("EXA_API_KEY") ?? "";
 
@@ -986,11 +1032,52 @@ ${teardownContext}`;
     const lennyResults = lennyResolved.map((r) => r.text);
     // Pooled across every query for this generation — reused by the citation
     // correction step below with zero extra retrieval cost, since it's the
-    // same context Sonnet is about to read.
+    // same context Sonnet is about to read. The zero-coverage fallback below
+    // (Step 2b) pushes into this same pool too, via the same resolver.
     const chunkPool: ArchiveChunk[] = lennyResolved.flatMap((r) => r.chunks);
-    const lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
+    let lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
     console.log("Lenny corpus length:", lennyCorpus.length, "| chunk pool size:", chunkPool.length);
     console.log("Web context length:", webSearchResult.text.length);
+
+    // ── Step 2b: Zero-coverage fallback ──────────────────────────────────────
+    // The 6 dimension queries above always use working seed terms (e.g.
+    // "positioning|differentiation|competitive moat"), so they almost always
+    // return *something* from the archive even for a product it has never
+    // heard of — that generic content is real, but it's not about this
+    // product. The actual "does the archive know this company" signal is the
+    // plain product-name query (allLennyQueries[0] / lennyResults[0]). When
+    // that comes back empty (or with only a stray coincidental keyword hit —
+    // e.g. "Resolve AI" spuriously matching on the common words "resolve"
+    // and "ai" in unrelated transcripts), extract category/business-model
+    // signal from the web results and run one follow-up archive query with
+    // that instead, then fold its results into the corpus alongside the
+    // dimension-query material. See extractCategorySignal above for why.
+    const nameQueryResultCount = (lennyResults[0]?.match(/^SOURCE: /gm) ?? []).length;
+    const nameQueryIsThin = nameQueryResultCount < 2;
+    let fallbackQuery: string | null = null;
+    let fallbackResult = "";
+    const fallbackDiag: Record<string, unknown> = {};
+    if (nameQueryIsThin && webSearchResult.text.length > 0) {
+      fallbackQuery = await extractCategorySignal(productName ?? "", webSearchResult.text);
+      if (fallbackQuery) {
+        console.log("Thin/no archive coverage for product name — fallback category query:", fallbackQuery);
+        // Same chunk-aware resolver as the dimension queries above, not the
+        // raw flat-text search directly — so a zero-coverage product's
+        // fallback content also gets real speaker metadata and benefits
+        // from the citation-correction step, instead of reintroducing the
+        // old undifferentiated-text path for exactly the products that
+        // most needed the misattribution fix.
+        const resolved = await resolveLennyQuery(fallbackQuery, includeDebug ? fallbackDiag : undefined);
+        fallbackResult = resolved.text;
+        if (fallbackResult) {
+          lennyCorpus = [lennyCorpus, fallbackResult].filter(Boolean).join("\n\n===\n\n");
+          chunkPool.push(...resolved.chunks);
+          console.log("Lenny corpus length (post-fallback):", lennyCorpus.length, "| chunk pool size:", chunkPool.length);
+        }
+      } else {
+        console.log("Thin/no archive coverage for product name — no usable category signal from web results");
+      }
+    }
 
     // Eval-only diagnostics: per-query retrieval size/counts plus the RPC error
     // (if any), so a zero-result run can be told apart from a query bug without
@@ -1006,6 +1093,14 @@ ${teardownContext}`;
           ...lennyDiags[i],
         }];
       }));
+      corpusRetrieval.fallback = {
+        triggered: nameQueryIsThin && webSearchResult.text.length > 0,
+        name_query_result_count: nameQueryResultCount,
+        query: fallbackQuery,
+        result_chars: fallbackResult.length,
+        result_count: fallbackResult ? (fallbackResult.match(/^SOURCE: /gm) ?? []).length : 0,
+        ...fallbackDiag,
+      };
     }
 
     const lennySection = lennyCorpus.length > 0
