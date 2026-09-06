@@ -163,3 +163,25 @@ The cost: building the graph needs an extraction step (something reads every tra
 It started as pure novelty scoring: extract claims, dedupe overlapping ones across the two outputs, rate what's left. The original scoring asked the judge to rate "validity" as *"how likely is this claim to be actually true, based on what a knowledgeable practitioner would believe"* — which is exactly the shape of the problem it was supposed to catch. A well-written hallucination is, by construction, a claim a knowledgeable practitioner would find believable; that's what makes it well-written. Judged plausibility can't distinguish a true claim from a confident, plausible, false one.
 
 As of 2026-09-04, validity is no longer judge-guessed. `classifyGroundedness()` checks each unique claim against the real archive first (reusing the same lookup citation-verification uses), then a live web fact-check if the archive has nothing. Only "usefulness" — genuinely a judgment call even once truth is established — is left to the judge. An ungrounded-but-confident claim is actively penalized in the score (not just excluded), per the explicit call that a nice-sounding hallucination is worse than no claim at all. "Novelty" described only the dedup step; the dimension as a whole now measures something closer to *verified, unique, useful* — hence the rename.
+
+---
+
+## 10. Is Scry's Retrieval Actually RAG Without Embeddings?
+**Context:** 2026-09-06, a direct question after entry 8 already covered lexical search, embeddings, and knowledge graphs as three retrieval techniques — does picking the lexical one disqualify Scry from being "a RAG system" at all?
+
+**Yes, it's still RAG — this is a common misconception worth naming precisely.** "RAG" (Retrieval-Augmented Generation) is the *pattern*: retrieve relevant content, put it in the prompt, generate using that context. It is not a specific retrieval technique. The "R" step can be implemented as keyword/lexical search, embeddings/vector similarity, a knowledge graph, or some hybrid — none of those is a requirement baked into the term.
+
+```mermaid
+flowchart TD
+  RAG["RAG — the pattern:<br/>retrieve, augment, generate"]
+  RAG --> Lex["Lexical retrieval<br/>(Postgres tsvector — what Scry uses)"]
+  RAG --> Vec["Embeddings retrieval<br/>(pgvector — not yet turned on)"]
+  RAG --> KG["Knowledge-graph retrieval<br/>(not built)"]
+  Lex --> Out["Still RAG either way —<br/>the retrieval technique is a choice<br/>inside the pattern, not the pattern itself"]
+  Vec --> Out
+  KG --> Out
+```
+
+**Where the confusion comes from:** the 2020 paper that coined "RAG" (Lewis et al.) happened to use dense embeddings for its retrieval step, and that pairing became the default association in a lot of people's minds. Industry usage broadened well past that specific implementation choice since then — production systems built on BM25/full-text search, long before "RAG" was a common term, get retroactively (and currently) described as RAG systems too. When the distinction matters, people say "lexical RAG" or "keyword RAG" versus "vector RAG" specifically *because* the retrieval technique varies independently of whether something counts as RAG at all.
+
+**Scry's own pipeline, mapped onto this:** Haiku generates search queries → Postgres full-text search over `lenny_corpus` **and** Exa web search run → Sonnet synthesizes using whatever came back. That's retrieval feeding augmented generation — the RAG pattern — implemented with lexical retrieval (plus a second, separate retrieval source, Exa, which *does* use real embeddings-based semantic search under the hood — see entry 8's note on the quality asymmetry this creates between Scry's two grounding sources). Turning on `pgvector` later (entry 8) would change *which* retrieval technique sits inside the pattern; it would not be the moment Scry "becomes" a RAG system — it already is one.
