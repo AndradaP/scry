@@ -235,6 +235,7 @@
       <li><a href="#e9">9 · LLM-as-judge evaluation</a></li>
       <li><a href="#e10">10 · Is Scry's retrieval RAG?</a></li>
       <li><a href="#e11">11 · Embeddings vs. knowledge graphs</a></li>
+      <li><a href="#e12">12 · Deciding on semantic search, for real</a></li>
     </ol>
   </nav>
 
@@ -515,6 +516,43 @@ flowchart TD
 
       <h3>The contrast to hold onto</h3>
       <p>Embeddings are <em>learned automatically</em> from raw text via contrastive training and give you continuous, uninterpretable "these are near each other" — no reason attached. Knowledge graphs are <em>manually designed</em> (the ontology) plus <em>populated</em> by an extraction process, and give you discrete, labeled, human-readable facts you can trace and explain. That's the entire reason a knowledge graph can answer "why is this relevant" and an embedding search can only answer "this is close."</p>
+    </section>
+
+    <section class="entry" id="e12">
+      <div class="entry-head"><span class="entry-num">12</span><h2>Deciding on semantic search for real, and how embedding pipelines actually get built</h2></div>
+      <p class="context"><strong>Context:</strong> 2026-09-06/07, the decision that closed out a multi-day investigation — plain word-overlap matching was proven (not assumed) to have a real ceiling in <code>archive-lookup.mjs</code>: a genuinely correct match scored 0.43, a wrong one scored 0.538, and no threshold could separate them.</p>
+
+      <h3>Why embeddings won over TF-IDF weighting specifically</h3>
+      <p>TF-IDF (term frequency × inverse document frequency — weight a word by how rare it is across the whole corpus, so "Duolingo" counts far more than "growth") fixes the <em>generic-overlap</em> failure mode: a wrong document that happens to share a lot of common vocabulary. It does <strong>not</strong> fix the <em>paraphrase</em> failure mode: "grew through referrals" and "expanded via word-of-mouth" share almost zero literal words, rare or common, so weighting words differently doesn't help when there's nothing to weight in the first place. Since paraphrase mismatches are plausibly as common as the generic-overlap case actually found, TF-IDF risked being a detour that gets rebuilt past rather than a real fix. Embeddings solve both failure modes with one mechanism, because they compare <em>meaning</em>, not word identity.</p>
+      <p>Other real factors in the decision, not just the technical one: the corpus is small (683 rows — a few cents and minutes to embed once, so the usual "big expensive lift" framing for embeddings doesn't apply at this scale); <code>pgvector</code> is already provisioned in the schema, unused — this is turning on existing infrastructure, not building new; and Exa's web layer (the other half of Scry's retrieval) already does real semantic search, so the archive — the actual proprietary differentiator — was the one running on the weaker method.</p>
+
+      <h3>The general embedding-pipeline process</h3>
+      <figure class="diagram">
+        <pre class="mermaid">
+flowchart LR
+  D[Raw documents] --> C[Chunking]
+  C --> E[Embed each chunk]
+  E --> S[(Store vector + metadata<br/>e.g. pgvector)]
+  Q[Query / claim text] --> QE[Embed the query,<br/>same model]
+  QE --> NN[Nearest-neighbor search]
+  S --> NN
+  NN --> R[Ranked chunks back]
+        </pre>
+        <figcaption>Retrieve-time flow: query and corpus are embedded with the same model, then compared by meaning, not word overlap</figcaption>
+      </figure>
+      <ol class="steps">
+        <li><strong>Chunking</strong> — split documents into pieces small enough to represent one coherent idea. Necessary because embedding an entire long document into one vector would blur many topics into a diluted average, losing the ability to find one specific passage inside a wide-ranging document.</li>
+        <li><strong>Embedding generation</strong> — each chunk becomes a vector via an embedding model; a one-time batch job over the whole corpus.</li>
+        <li><strong>Storage</strong> — vectors stored alongside metadata (source document, position, speaker if known) in a vector-capable store.</li>
+        <li><strong>Query-time retrieval</strong> — the query (or, here, the claim being verified) gets embedded with the <em>same</em> model, then nearest-neighbor search (cosine similarity) finds the closest chunks — comparing meaning, not counting shared words.</li>
+        <li><strong>Usually hybrid, not a replacement</strong> — lexical search still catches exact phrases and proper nouns embeddings sometimes miss; most real systems run both and combine results rather than discarding full-text search entirely.</li>
+      </ol>
+
+      <h3>Applied to Lenny's corpus specifically — podcasts and newsletters chunk very differently</h3>
+      <p><strong>Newsletters</strong> (<code>02-newsletters/*.md</code>) — prose, single-author, already structured with section headers. The easy case: chunk by paragraph or by Lenny's own H2/H3 breaks. The natural semantic unit already matches the document's own structure.</p>
+      <p><strong>Podcasts</strong> (<code>03-podcasts/*.md</code>) — the harder, more interesting case. Turn-taking transcripts with speaker tags (<code>**Katie Dill** (01:28:22):</code>), often 15,000+ words, where one real idea spans several speaker turns — a leading question, an answer, a follow-up. A naive fixed-length chunker ignores this and can cut a chunk mid-sentence or split a question from its answer. The right approach is <strong>speaker-turn-aware chunking</strong>: group a coherent block of consecutive turns (a question plus its full answer, or a few turns on one sub-topic) into one chunk, respecting the transcript's real structure instead of blindly slicing by character count.</p>
+      <p><strong>The structural win this creates, beyond better matching:</strong> if each chunk stores its actual speaker as real metadata <em>at chunking time</em> — not inferred later — this doesn't just improve retrieval quality, it eliminates the entire speaker-misattribution bug class from entries 9/11's investigation. The current <code>nearestPrecedingSpeaker()</code> has to guess who said something <em>after the fact</em>, scanning backward from wherever a lexical match happened to land — that's the exact mechanism behind the Katie Dill misattribution bug (confirmed and fixed once, but structurally fragile). If retrieval instead returns "this chunk, tagged Katie Dill, guest" directly from metadata attached during chunking, there's no after-the-fact guessing left to do at all. That's a structural fix, not another heuristic patch.</p>
+      <p><strong>Practical note for the eventual build, not yet decided:</strong> an embedding model is needed to turn text into vectors. Gemini's own embedding API is the path of least friction here, since billing is already live on that account for this project — worth knowing, not a commitment.</p>
     </section>
 
   </main>
