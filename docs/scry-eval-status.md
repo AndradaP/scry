@@ -1,6 +1,9 @@
 # Scry Eval — Status & Handoff
 
-*Written for continuity across Claude Code sessions. Last updated: Aug 29, 2026.*
+*Written for continuity across Claude Code sessions. Last updated: Sep 6,
+2026. Everything below "What actually happened (progress log)" through Aug
+29 is left as history; the Sep 2026 section and the rewritten "What's left"
+below it are the current state — read those first.*
 
 ## The actual question this eval answers
 
@@ -161,45 +164,230 @@ subagents, staged for review, none applied/integrated yet):**
   `supabase db push` until someone runs a migration repair. Left alone
   deliberately, out of scope of everything above.
 
-**In progress right now:** requested a plain-text read-through of 3 products
-across all 3 arms (Slack/high-coverage, Loom/moderate, Resolve AI/zero) to
-sanity-check output quality before building the formal judging layer.
-Claude Code produced an artifact called "coverage spectrum" — **not yet
-reviewed, paste contents in to complete this section.**
+**In progress as of Aug 29:** a plain-text read-through of 3 products across
+all 3 arms was requested to sanity-check output quality before building the
+formal judging layer. Superseded by what actually happened next — Phase 2
+(citation verification + pairwise judging) got built and run for real; see
+below.
+
+## September 2026 update — Phase 2 ran, a real incident happened, and it surfaced findings that reframe the plan above
+
+**Phase 2 got built and run.** Citation verification (deterministic,
+`run-citation-verification.mjs`) and pairwise LLM-judging (Claude + Gemini,
+position-swapped, `run-judgments.mjs`) both exist and have real data behind
+them now — 12 products, both baseline arms, most of the judge matrix
+complete. The staged `eval_judgments`/`eval_citations` schema was promoted
+for real (`20260830_eval_judgments.sql`).
+
+**A real cost incident happened and got fixed.** Unbounded claim extraction
+(one output produced 147 "distinct claims," no cap anywhere) combined with
+one live web-search API call per ungrounded claim burned **$62.27** in a
+single day, batch nowhere near finished. Root-caused against real data
+before fixing, not guessed at. Fixed with three things, all committed: a
+hard spend ceiling (`lib/budget.mjs`, `EVAL_BUDGET_USD`, throws
+`BudgetExceededError` which kills the *whole* run, not just one dimension),
+a hard cap on claims considered per side (`MAX_CLAIMS = 20`, enforced in
+code not just prompted), and batching the fact-check calls (one call per
+side covering every ungrounded claim, not one call per claim). Verified
+against a real $1-ceiling test run before trusting it further.
+
+**The `insight_novelty` dimension was renamed and redesigned as
+`grounded_insight_value`.** It used to also ask the judge to rate
+"validity" as *"how likely is this claim to be actually true, based on what
+a knowledgeable practitioner would believe"* — which cannot distinguish a
+true claim from a confident, plausible, false one, since that's the exact
+shape of a good hallucination. Validity is no longer judge-guessed: each
+unique claim is checked against the real archive first, then a live web
+fact-check if the archive has nothing. Ungrounded-but-confident claims are
+actively penalized (not just excluded) — a nice-sounding hallucination is
+worse than no claim at all, per explicit instruction. A length-bias defense
+was also added alongside the existing formatting-bias one.
+
+**Reading real losing rows surfaced two deeper problems with the
+redesigned rubric, before it had even fully run:**
+- **Groundedness didn't distinguish *why* a claim is verifiable.** For
+  famous, extensively-documented companies (Duolingo, Figma), `claude_vanilla`
+  — zero tools, zero archive access — got claims classified
+  `archive_paraphrase`-grounded purely because its training-knowledge
+  claims happened to also be true and independently verifiable. On
+  Duolingo it scored **19/19 claims "grounded."** This meant the check
+  answered "is this true" not "did this arm's retrieval actually produce
+  this," undermining the eval's whole purpose hardest on exactly the
+  high-coverage products where Scry should look best. **Fixed**: archive-tier
+  grounding (`archive_verbatim`/`archive_paraphrase`) is now only reachable
+  for `scry`'s own claims — the only arm with a real path to have used the
+  archive.
+- **Live web fact-checking can't verify strategic interpretation the way it
+  verifies facts.** A reasonable synthesis claim ("Loom inverted typical PLG
+  mechanics...") gets "no evidence found" and was hit with the same full
+  penalty as an actively false claim. **Fixed**: `web_contradicted` keeps
+  the full penalty; a "no evidence either way" verdict gets a much lighter
+  one (`NOVELTY_PENALTY_WEIGHT_NO_EVIDENCE = 1` vs. 3).
+
+Both fixes are implemented and committed. The 46 old `grounded_insight_value`
+rows (scored under the pre-fix, invalid methodology) were deleted; only 5
+of them have been recomputed under the fixed code so far — **blocked
+repeatedly on the Anthropic account's credit balance running out
+mid-batch**, a recurring issue across this whole session (added credits
+multiple times, same error recurred — looked like an org/workspace
+mismatch rather than a genuine shortfall each time). Do not trust any
+`grounded_insight_value` aggregate number until this finishes a full,
+clean run.
+
+**A parallel three-agent investigation ran** (Task tool, one in the main
+worktree scoped to `scripts/eval/`, two in isolated git worktrees to avoid
+file conflicts) to move faster without the mistakes above repeating:
+
+1. **Rubric-fix agent** — implemented the two fixes above. Blocked on the
+   Anthropic credit issue for finishing the re-run (see above).
+2. **Unknown-product query-fix agent** — built and **already deployed live**
+   to `generate-teardown` (not yet merged to `main` — the git commit is only
+   on `worktree-agent-ac6ca54aa6a14cafa`, so production and `main` are
+   currently out of sync, a deliberate hold pending the item below). For a
+   zero-coverage product, it now runs the web-search leg first, extracts
+   real category/business-model signal, and issues a follow-up archive
+   query with that instead of just the raw (unmatchable) product name.
+   Tested on Nuvo/Arena Physica/Resolve AI/AirOps: **fabrication dropped
+   meaningfully** (combined 17.2%→12.3%, Arena Physica 58.3%→13.0%), but
+   **precision dropped for 3 of 4 products** — the agent traced this
+   honestly to the archive-matcher quality issue below giving more
+   retrieved content more chances to be mis-matched, not to a flaw in the
+   query-bootstrap idea itself. Resolve AI's fallback never triggered — a
+   separate, unfixed name-collision bug (the words "resolve"/"ai" are
+   common enough to spuriously return archive hits on the bare product
+   name). **Do not judge this fix's real value until it's retested against
+   the fixed matcher below.**
+3. **Citation-precision investigation agent** (report only, no code
+   changes, by design — the exact "build before diagnosing" mistake from
+   the `grounded_insight_value` rework was avoided on purpose here) — see
+   findings below. Independently converged on the same underlying matcher
+   problem the query-fix agent's precision drop pointed at, from a
+   completely different angle — a real cross-validation signal.
+
+**Citation-precision investigation findings, all with concrete evidence,
+not guesses:**
+
+- **The original "Moderate tier (51%) is worse than Zero tier (72%)"
+  mystery is mostly a measurement artifact, not a real quality gap.** Web
+  citations get an automatic pass in `run-citation-verification.mjs` —
+  format-checked only, content never verified (`classifyWebCitation`'s own
+  header comment already says this is out of scope). Zero-tier leans
+  heavily on web citations (69%, since there's nothing archive-shaped to
+  say), which all auto-pass; Moderate-tier leans more on archive citations
+  (56%), which go through the one path that's actually checked — and that
+  path fails at almost the same real rate in both tiers (12.5% vs. 11.1%
+  archive-verified). **The 90% precision gate is inflated for any product
+  leaning on web citations** — a live methodology gap, not fixed yet.
+- **Confirmed, fixed bug #1**: `archive-lookup.mjs`'s speaker resolution
+  anchored on the first occurrence of the first significant claim word
+  *anywhere in the whole transcript* — in a multi-speaker document that's
+  near-arbitrary. Proven concretely: a verbatim Katie Dill quote got
+  resolved to "Lenny" this way. **Fixed** — now finds the position whose
+  surrounding window contains the most of the claim's other significant
+  words too. Verified fixed on the Katie Dill case.
+- **Confirmed, fixed bug #2**: `extract-citations.mjs`'s sentence-boundary
+  regex broke on any decimal number appearing earlier in the same
+  paragraph ("2.5 years"), silently falling back to grabbing the entire
+  preceding section as `claim_text` instead of one sentence, blending
+  unrelated citations together. **Fixed** — decimal points are masked
+  before sentence-boundary matching.
+- **A real, deeper, NOT-yet-fixed problem**: generic "recognizable expert"
+  name-dropping. For thin-coverage (Moderate-tier) products, Scry names
+  plausible real archive guests (April Dunford, Hila Qu, Katie Dill) from
+  general topic knowledge, not from anything actually retrieved about that
+  specific product — and misses the one real archive-connected guest that
+  does exist (Calendly's Oji Udezue, never cited). This is a
+  **generation-side defect** (`generate-teardown` itself), not just an
+  eval-measurement issue, though the eval's own word-overlap matcher (next
+  item) makes it easy for this pattern to hide behind a plausible-looking
+  "verified-paraphrase" match.
+- **The matcher's actual ceiling, discovered empirically, not assumed —
+  this is the load-bearing finding for the semantic-search question.**
+  Tried fixing the wrong-episode-matching problem by scoring word-overlap
+  within the same local window used for speaker resolution (instead of the
+  whole document) — this correctly demoted real false-positive matches
+  (Snyk episode wrongly matched to a Duolingo claim: 0.11-0.22 across all
+  window sizes tried, well below any reasonable threshold) but **also
+  broke a genuinely correct match** (real Duolingo-streaks claim, correct
+  episode, tops out at 0.43 confidence in its best window — never clears
+  0.55). Worse: a wrong match (Duolingo growth claim → generic Lenny
+  newsletter about building growth engines) sits flat at **0.538
+  regardless of window size**, because that newsletter is generically
+  *about* growth and shares vocabulary with almost any growth-related claim.
+  **No threshold or window size can separate a 0.43 correct match from a
+  0.538 wrong one — this is not a tuning problem, it's a real ceiling on
+  plain word-overlap.** This windowed-scoring change is sitting
+  **uncommitted** (`lib/archive-lookup.mjs`) pending the decision below —
+  do not assume it's live.
+
+**Open decision, not yet made: how to fix the matcher ceiling.** Three real
+options, in cost order: (1) ship the windowed version anyway, accepting the
+tradeoff it demonstrably has; (2) weight distinctive/rare words much more
+than generic ones (TF-IDF style) — still lexical, no new infrastructure,
+directly targets the demonstrated failure mode (generic vocabulary
+overwhelming specific signal), untested but theoretically well-motivated,
+worth trying before the bigger option; (3) real semantic
+embeddings/`pgvector` (already schema-ready, unused) — now genuinely
+justified by concrete, reproducible evidence rather than an assumption
+("discover, don't assume" was the standing principle all along, and this is
+what discovering it looks like) — but still the most expensive option, and
+option (2) hasn't been tried yet so it isn't yet proven necessary.
+**Recommendation if no one's made the call yet: try (2) first, cheaply; if
+it doesn't resolve the Duolingo-streaks-vs-newsletter-class of case, that's
+the real trigger for (3).**
+
+**Consider for future eval cost**: swap the tool-free judge calls (claim
+extraction, usefulness scoring, the three pairwise comparison dimensions —
+the bulk of token volume) to a cheap open-weight model via any inference
+provider. Real, not just cost savings: a third model family also
+strengthens the existing "no model grades its own homework" defense beyond
+just Claude+Gemini. Does NOT cleanly cover the live web fact-check, which
+rides on Claude's built-in server-side search tool — an open-weight swap
+there needs real search wired up manually (Exa, already used in production)
+rather than being a drop-in replacement. Not scoped yet — a real follow-up
+decision, not a snap model pick.
 
 ## What's left, roughly in order
 
-1. Read the coverage-spectrum artifact together against: does grounding
-   carry real argumentative weight vs. decorate a sentence; does framework
-   application derive a specific conclusion vs. name-drop; does positioning
-   go past feature-parity into why bets differ; is `scry` distinguishable
-   from `claude_web` with labels covered; any vendor-sourced citations
-   masquerading as independent grounding (Figma had 3/16 pointing at its
-   own Help Center); does `lennys_lens` read as real synthesis or generic
-   filler.
-2. Fix the `eval_judgments` FK gap and write the missing claim-equivalence
-   prompt before promoting the staged schema.
-3. Confirm `generate-teardown`'s exact response shape for baseline
-   extraction.
-4. Build and run Phase 2: citation verification pass (deterministic) +
-   pairwise judging (Claude + Gemini, position-swapped) across all 12
-   products.
-5. Evaluate against the pre-committed decision gates above. This is the
-   moment that actually answers whether the differentiation thesis holds.
-6. Get Abhi's verbatim prompt (still outstanding) to finally run the manual
-   Deep Research arm, at least on a subset.
-7. Depending on Phase 2 outcome: either lock a use case and build the
-   framework-first query redesign, or treat it as a rescue attempt, or
-   start framing this honestly as a portfolio piece rather than a product
-   with unproven differentiation.
+1. **Decide the archive-matcher fix** (see the three options above) —
+   currently blocking trust in any citation-precision number, and blocking
+   whether to merge the unknown-product query fix (item 2).
+2. **Decide whether to merge the unknown-product query-fix branch**
+   (`worktree-agent-ac6ca54aa6a14cafa`) to `main` — currently deployed live
+   to production but un-merged; re-test against the fixed matcher before
+   deciding, not against the current numbers (matcher-confounded).
+3. **Finish the `grounded_insight_value` re-run** — blocked on the
+   Anthropic account credit issue (check the org/workspace the API key
+   actually belongs to, not just whether credits were added) — and should
+   happen *after* item 1 lands, so it isn't scored against a matcher known
+   to be wrong (would mean a third re-run otherwise).
+4. **Build real web-citation content verification** (currently
+   format-checked only, inflating precision on any product leaning on web
+   citations) — the `lib/web-fact-check.mjs` batched fact-checker already
+   built for `grounded_insight_value` is directly reusable here, this is
+   mostly wiring, not new design.
+5. **Scope the generation-side generic-expert-name-dropping fix**
+   (`generate-teardown` itself, not the eval) — real, confirmed, not yet
+   designed.
+6. **Full re-analysis** once 1-4 land, against the pre-committed decision
+   gates in "Eval design" above — this is the actual moment that answers
+   whether the differentiation thesis holds, still pending.
+7. Get Abhi's verbatim Deep Research prompt (still outstanding, unrelated
+   to everything above) to finally run the manual arm, at least on a
+   subset.
+8. Scope the open-weight-model swap for eval judging (see above) — real
+   cost-reduction opportunity for whatever Phase 3 looks like.
 
 **Not blocking, but don't let them quietly rot:**
-- Fix JWT signature verification before any wider beta.
-- Semantic embeddings upgrade — measure as its own before/after once built,
-  don't fold it into this eval's baseline.
-- Email LennyData directly about durable server-side access options
-  (asked, not yet sent as far as this record shows).
-- Migration-history repair.
+- Fix JWT signature verification before any wider beta (flagged 2026-08-23,
+  still not fixed).
+- Email LennyData directly about durable server-side access options (asked,
+  not yet sent as far as this record shows).
+- Migration-history repair (pre-existing drift, unrelated to the two new
+  migrations added this session, which are both accounted for in
+  `supabase/migrations/`).
+- Resolve AI's archive fallback never triggering (name-collision bug, found
+  during the unknown-product query-fix testing, not fixed).
 
 ## Process note, since you're consolidating into Code
 

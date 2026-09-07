@@ -83,6 +83,19 @@ const NOVELTY_TIE_EPSILON = 2;
 // score distributions exist across a full batch.
 const NOVELTY_PENALTY_WEIGHT = 3;
 
+// Finding B (2026-09-06): factCheckClaims is good at corroborating discrete
+// facts but structurally can't "corroborate" a higher-level strategic
+// interpretation/synthesis claim — live search just won't turn up conclusive
+// evidence either way for something like "Loom inverted typical PLG
+// mechanics." Before this fix, that "no evidence found" case was classified
+// identically (tier "ungrounded", full NOVELTY_PENALTY_WEIGHT penalty) to a
+// claim that was actively web_contradicted — i.e. evidence was found proving
+// it false. Those are very different severities: "we couldn't verify this
+// either way" should cost much less than "this is actually false." Only
+// web_contradicted keeps the full penalty; every other ungrounded tier
+// (ungrounded/no_evidence, unverifiable) uses this much lighter weight.
+const NOVELTY_PENALTY_WEIGHT_NO_EVIDENCE = 1;
+
 // Hard cap on claims considered per side, enforced here in code — never
 // trust judge-prompts.mjs's MAX_CLAIMS instruction alone as the only limit.
 // One real output produced 147 "distinct claims" with no cap anywhere
@@ -233,9 +246,26 @@ async function runStandardDimension(ctx, dim, textA, textB) {
 // header) ----
 
 // Archive check only — free DB lookup, no API cost, safe to run per-claim.
-// Returns null (not found) rather than a verdict, so the caller knows which
-// claims still need a live web check.
-async function classifyArchiveGroundedness(claimText) {
+// Returns null (not found, OR not eligible) rather than a verdict, so the
+// caller knows which claims still need a live web check.
+//
+// Finding A (2026-09-06): the archive-grounded tiers (archive_verbatim,
+// archive_paraphrase) must only ever be reachable for claims belonging to
+// the `scry` arm — it's the only arm with a legitimate causal path to have
+// actually used the archive. Previously this checked a claim's TEXT against
+// the real archive regardless of which arm produced it, so claude_vanilla
+// (zero tool access, zero archive access, pure training-knowledge output)
+// got claims classified as archive-grounded whenever its stated facts —
+// often about famous, extensively-documented companies — happened to also
+// appear somewhere in the Lenny archive by sheer coincidence. Confirmed
+// real example: on Duolingo, claude_vanilla scored 19/19 claims "grounded."
+// That answers "is this claim's content independently true," not "did this
+// arm's own retrieval actually produce this claim" — undermining the whole
+// point of the eval. Claims from claude_vanilla/claude_web now skip the
+// archive lookup entirely for grounding-tier purposes and can only ever be
+// graded web_corroborated (via the live fact-check) or ungrounded.
+async function classifyArchiveGroundedness(claimText, arm) {
+  if (arm !== "scry") return null;
   const archiveResults = await archiveLookup({ claim_text: claimText, claimed_speaker: null });
   if (archiveResults.length === 0) return null;
   const top = archiveResults[0];
@@ -259,13 +289,13 @@ function classifyWebVerdict(verdict) {
 // against the free archive lookup, then makes AT MOST ONE batched
 // factCheckClaims call covering every claim the archive didn't cover — not
 // one call per claim.
-async function scoreClaimSet(claims, product, backend) {
+async function scoreClaimSet(claims, product, backend, arm) {
   const capped = claims.slice(0, MAX_CLAIMS);
   const graded = new Array(capped.length);
   const needsWebCheck = [];
 
   for (let i = 0; i < capped.length; i++) {
-    const archiveResult = await classifyArchiveGroundedness(capped[i]);
+    const archiveResult = await classifyArchiveGroundedness(capped[i], arm);
     if (archiveResult) {
       graded[i] = { claim: capped[i], ...archiveResult };
     } else {
@@ -304,8 +334,17 @@ async function scoreClaimSet(claims, product, backend) {
 function reduceClaimScore(graded) {
   let score = 0;
   for (const g of graded) {
-    if (g.grounded) score += g.validity * g.usefulness;
-    else score -= g.usefulness * NOVELTY_PENALTY_WEIGHT;
+    if (g.grounded) {
+      score += g.validity * g.usefulness;
+    } else {
+      // Finding B: only an actively web_contradicted claim (real evidence
+      // found it's false) gets the full penalty. Every other ungrounded
+      // tier — ungrounded/no_evidence, unverifiable — means "no conclusive
+      // evidence either way," which is a much lighter offense and gets the
+      // lighter weight.
+      const weight = g.tier === "web_contradicted" ? NOVELTY_PENALTY_WEIGHT : NOVELTY_PENALTY_WEIGHT_NO_EVIDENCE;
+      score -= g.usefulness * weight;
+    }
   }
   return score;
 }
@@ -332,8 +371,8 @@ async function runGroundedInsightValueDimension(ctx, textA, textB) {
     uniqueToB = equiv.unique_to_b ?? [];
   }
 
-  const gradedA = await scoreClaimSet(uniqueToA, product, backend);
-  const gradedB = await scoreClaimSet(uniqueToB, product, backend);
+  const gradedA = await scoreClaimSet(uniqueToA, product, backend, arm_a);
+  const gradedB = await scoreClaimSet(uniqueToB, product, backend, arm_b);
 
   const scoreA = reduceClaimScore(gradedA);
   const scoreB = reduceClaimScore(gradedB);
