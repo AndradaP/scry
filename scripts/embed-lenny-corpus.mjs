@@ -197,7 +197,14 @@ async function embedBatch(texts) {
 // ---- main ----
 
 async function main() {
-  const { data: rows, error } = await supabase.from("lenny_corpus").select("*").order("filename");
+  // Explicit column list, not select("*") — that pulled the fts tsvector
+  // column across all 683 rows unnecessarily and took ~18s, right at the
+  // edge of PostgREST's statement timeout (confirmed failing once,
+  // 2026-09-07). Only these columns are actually used below.
+  const { data: rows, error } = await supabase
+    .from("lenny_corpus")
+    .select("id, filename, content_type, title, published_date, source_url, content")
+    .order("filename");
   if (error) throw error;
   console.log(`${rows.length} source rows in lenny_corpus.`);
 
