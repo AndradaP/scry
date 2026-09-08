@@ -162,34 +162,42 @@ export async function archiveLookup({ claim_text, claimed_speaker }) {
           )
         : cand.headline;
     } else {
-      const overlap = wordOverlapConfidence(claim_text, bodyForMatch);
-      // Raised from an initial 0.34 after a manual spot-check of the first
-      // verification run: at 0.34, plain word-overlap (no real embeddings —
-      // the same limitation flagged throughout this session) was confidently
-      // matching claims to plausible-sounding but wrong episodes, inflating
-      // the misattributed count with false positives rather than reflecting
-      // real Scry defects. 0.55 is still a heuristic, not true semantic
-      // matching, but it's conservative enough that a "found" result means
-      // something — a weak/ambiguous match now falls through to fabricated
-      // (no confident content match) instead of a confident wrong verdict.
+      // Redesigned 2026-09-06, replacing whole-document word-overlap
+      // scoring. The old approach (below) scored overlap against the ENTIRE
+      // transcript — for a long document, generic vocabulary ("growth",
+      // "retention", "team", "users") scattered across many unrelated
+      // sections adds up to a deceptively high score even when the claim's
+      // actual specific topic never appears together anywhere. Confirmed on
+      // real data: claims genuinely about Duolingo retention matched
+      // unrelated episodes (a Snyk PLG interview, an Albert Cheng episode,
+      // a Lenny newsletter) at 0.62-0.87 confidence — well above the 0.55
+      // threshold, so raising that number alone would not have helped; the
+      // scoring mechanism itself was the problem, not where the cutoff sat.
+      //
+      // Fix: find the best local window first (bestMatchPosition, already
+      // built for speaker resolution below), then score word overlap
+      // *within that window only* — a truly unrelated passage won't have
+      // the claim's specific words clustered together in any single
+      // ~800-character span, only scattered across the whole document.
+      let bestIdx = -1;
+      let overlap = 0;
+      const words = significantWords(claim_text);
+      if (full?.content) {
+        bestIdx = bestMatchPosition(full.content, words);
+        if (bestIdx >= 0) {
+          const windowText = full.content.slice(Math.max(0, bestIdx - 400), Math.min(full.content.length, bestIdx + 400));
+          overlap = wordOverlapConfidence(claim_text, windowText);
+        }
+      } else {
+        // No full content available (headline-only candidate) — nothing to
+        // window within, fall back to scoring against what we have.
+        overlap = wordOverlapConfidence(claim_text, bodyForMatch);
+      }
       if (overlap < 0.55) continue;
       matchType = "semantic";
       confidence = Math.min(0.95, overlap);
       matchedSnippet = cand.headline; // best available excerpt when not exact
-      // Position for speaker lookup, fixed 2026-09-06: this used to take the
-      // first occurrence of the first significant claim word anywhere in the
-      // whole transcript — in a multi-speaker document that's essentially
-      // arbitrary (common words recur throughout, early occurrences skew
-      // toward the host's intro). Confirmed concretely: a Katie Dill quote,
-      // verified verbatim in the transcript, got resolved to "Lenny" because
-      // an earlier unrelated occurrence of one claim word sat near the
-      // transcript's start. Now: find the position whose surrounding window
-      // contains the most of the claim's OTHER significant words too — the
-      // real matching passage should have several cluster together, not
-      // just one coincidental hit — and use that instead.
-      if (full?.content) {
-        matchIdx = bestMatchPosition(full.content, significantWords(claim_text));
-      }
+      matchIdx = bestIdx;
     }
 
     let realSpeaker = null;
