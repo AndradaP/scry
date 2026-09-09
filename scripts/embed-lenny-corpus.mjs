@@ -42,6 +42,15 @@ const EMBED_DIM = 3072;
 const CHUNK_TARGET_CHARS = 1500;
 const HOST_NAME_VARIANTS = /^lenny(\s+rachitsky)?$/i;
 const SPEAKER_TAG = /\*\*([^*]{2,60})\*\*\s*\(\d{2}:\d{2}:\d{2}\):\s*/g;
+// Fallback for transcripts with no timestamps at all, e.g. "**Adriel
+// Frederick**:\n" — confirmed for real, 2026-09-09: one file in the corpus
+// (03-podcasts/adriel-frederick.md, 155 turns) uses only this format and was
+// silently producing zero chunks under SPEAKER_TAG alone. Requires the colon
+// immediately after the closing "**" (no space before it), which a
+// timestamped tag never has — mutually exclusive with SPEAKER_TAG by
+// construction, so trying this second only when the first finds nothing is
+// safe and won't double-match a timestamped transcript.
+const SPEAKER_TAG_NO_TIMESTAMP = /\*\*([^*]{2,60})\*\*:\s*\n/g;
 
 // ---- chunking ----
 
@@ -64,7 +73,8 @@ function chunkPodcast(content) {
   // Parse into ordered {speaker, text} turns, merging consecutive
   // same-speaker timestamped segments (a speaker often has several
   // consecutive timestamped lines that are really one continuous turn).
-  const matches = [...content.matchAll(SPEAKER_TAG)];
+  let matches = [...content.matchAll(SPEAKER_TAG)];
+  if (matches.length === 0) matches = [...content.matchAll(SPEAKER_TAG_NO_TIMESTAMP)];
   if (matches.length === 0) return [];
 
   const rawTurns = [];
@@ -161,14 +171,32 @@ async function embedBatch(texts) {
   }));
   let lastError;
   for (let attempt = 0; attempt <= RATE_LIMIT_BACKOFFS_MS.length; attempt++) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:batchEmbedContents?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requests }),
+    let res;
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:batchEmbedContents?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requests }),
+        }
+      );
+    } catch (err) {
+      // A dead/stale HTTP/2 connection can make fetch() itself reject
+      // (undici UND_ERR_INFO "stream timeout") rather than resolve with a
+      // non-ok response — confirmed for real, 2026-09-09, killing a run
+      // mid-batch on both this call and the Supabase insert (see
+      // insertBatch). Same retry schedule as a 429/503; this isn't a
+      // rate-limit specifically, just any transient network failure.
+      if (attempt < RATE_LIMIT_BACKOFFS_MS.length) {
+        const wait = RATE_LIMIT_BACKOFFS_MS[attempt];
+        console.warn(`  [network error: ${err.message}] waiting ${wait / 1000}s before retry ${attempt + 1}/${RATE_LIMIT_BACKOFFS_MS.length}`);
+        lastError = err;
+        await sleep(wait);
+        continue;
       }
-    );
+      throw err;
+    }
     if (res.ok) {
       const data = await res.json();
       const vectors = (data.embeddings ?? []).map((e) => e.values);
@@ -190,6 +218,41 @@ async function embedBatch(texts) {
       continue;
     }
     throw new Error(`batchEmbedContents failed (${res.status}): ${bodyText.slice(0, 500)}`);
+  }
+  throw lastError;
+}
+
+const INSERT_RETRY_BACKOFFS_MS = [3_000, 10_000, 20_000];
+
+// Retries transient network failures on the insert itself — confirmed happening
+// for real, twice, 2026-09-09: a long-lived Node process's HTTP/2 connection to
+// Supabase went stale mid-run and failed with "stream timeout after 300000"
+// (undici UND_ERR_INFO), unrelated to Gemini rate limits and not covered by
+// embedBatch's own retry logic. Previously this had no retry at all — any
+// insert error immediately threw and killed the whole run. A fresh
+// createClient() per retry, not just a retried call on the same client,
+// since a stale HTTP/2 connection is exactly what's suspected to be at fault.
+async function insertBatch(toInsert) {
+  let lastError;
+  for (let attempt = 0; attempt <= INSERT_RETRY_BACKOFFS_MS.length; attempt++) {
+    const client = attempt === 0 ? supabase : createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    // A dead HTTP/2 connection (the exact failure this exists for) can make
+    // the underlying fetch() reject outright rather than resolve with
+    // {error} — confirmed for real, 2026-09-09, surviving a lid-close/sleep
+    // right through the first version of this retry wrapper because it only
+    // handled the resolved-with-error shape. try/catch covers both.
+    try {
+      const { error } = await client.from("lenny_corpus_chunks").insert(toInsert);
+      if (!error) return;
+      lastError = error;
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < INSERT_RETRY_BACKOFFS_MS.length) {
+      const wait = INSERT_RETRY_BACKOFFS_MS[attempt];
+      console.warn(`  [insert failed: ${lastError.message}] waiting ${wait / 1000}s before retry ${attempt + 1}/${INSERT_RETRY_BACKOFFS_MS.length}`);
+      await sleep(wait);
+    }
   }
   throw lastError;
 }
@@ -230,11 +293,42 @@ async function main() {
   // Idempotent resume: skip chunks already embedded from a prior (possibly
   // interrupted) run, keyed on (source_id, chunk_index) — cheap enough to
   // fetch the whole existing set once rather than check row by row.
-  const { data: existingRows, error: existingErr } = await supabase.from("lenny_corpus_chunks").select("source_id, chunk_index");
-  if (existingErr) throw existingErr;
+  //
+  // Must page through with .range(): PostgREST silently caps an unpaginated
+  // select() at its default response limit (1000 rows). A run against an
+  // already-partially-populated table (well past 1000 existing rows) would
+  // otherwise see only the first 1000, treat everything else as "not yet
+  // embedded," and re-embed + re-insert it as duplicate rows (no unique
+  // constraint on (source_id, chunk_index) catches this at the DB level).
+  // Confirmed happening for real on 2026-09-08: a resume run against 27,350
+  // existing rows saw only 1000 of them and inserted ~20k duplicates before
+  // hitting a billing-exhausted 429.
+  const existingRows = [];
+  {
+    const PAGE = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from("lenny_corpus_chunks")
+        .select("source_id, chunk_index")
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      existingRows.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+  }
   const existing = new Set(existingRows.map((r) => `${r.source_id}::${r.chunk_index}`));
   const remaining = allChunks.filter((c) => !existing.has(`${c.source_id}::${c.chunk_index}`));
   console.log(`${existing.size} chunks already embedded, ${remaining.length} remaining.`);
+
+  // Cost tracing: not Gemini's published per-token rate (not confirmed), but
+  // an empirical anchor from the first real run's billing (see this
+  // script's git history, 2026-09-07: ~500 chunks cost ~$0.03 for real).
+  // Approximate, per-chunk rather than per-token, but enough to give a
+  // running total instead of finding out the bill after the fact.
+  const EST_COST_PER_CHUNK = 0.03 / 500;
+  let estSpend = 0;
 
   const BATCH = 50; // Gemini batchEmbedContents supports up to 100; staying conservative
   let embedded = 0;
@@ -242,13 +336,13 @@ async function main() {
     const batch = remaining.slice(i, i + BATCH);
     const vectors = await embedBatch(batch.map((c) => c.chunk_text));
     const toInsert = batch.map((c, j) => ({ ...c, embedding: JSON.stringify(vectors[j]) }));
-    const { error: insErr } = await supabase.from("lenny_corpus_chunks").insert(toInsert);
-    if (insErr) throw insErr;
+    await insertBatch(toInsert);
     embedded += batch.length;
-    console.log(`  embedded ${embedded}/${remaining.length} (${existing.size + embedded}/${allChunks.length} total)`);
+    estSpend += batch.length * EST_COST_PER_CHUNK;
+    console.log(`  embedded ${embedded}/${remaining.length} (${existing.size + embedded}/${allChunks.length} total) — est. spend so far: $${estSpend.toFixed(2)}`);
   }
 
-  console.log("\nDone.");
+  console.log(`\nDone. Estimated total spend this run: $${estSpend.toFixed(2)} (approximate — see EST_COST_PER_CHUNK note above).`);
 }
 
 main().catch((err) => {
