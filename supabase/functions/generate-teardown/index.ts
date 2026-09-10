@@ -444,6 +444,25 @@ function stripBareArchiveCitations(text: string): string {
   });
 }
 
+// Defensive safety net, not a fix for a known-understood cause: observed once
+// (2026-09-09, real deployed test) that a citation's name portion could end up
+// as the literal stripped-name placeholder "the team" instead of the whole
+// citation block being removed cleanly — e.g. "(the team, VP of Marketing and
+// Partnerships · Lenny's Archive)". Reproduction attempts (3 further local
+// generations, including one that hit the same strip path) did not repeat it,
+// and the block-removal regex works correctly in isolation against the exact
+// failing text, so the precise trigger is unconfirmed — possibly a rare
+// overlap between two citations' literal text in the same field. "the team"
+// is never a legitimate citation name under any circumstance, so this is
+// removed categorically regardless of root cause, as a last-resort net rather
+// than a targeted fix.
+function stripMalformedTeamCitations(text: string): string {
+  return text.replace(/\s*\(the team,[^)]*\)/gi, (match) => {
+    console.log(`Stripping malformed leftover citation: ${match.trim()}`);
+    return "";
+  });
+}
+
 // Eval-only observation: counts archive-format citations `(Name, Role · Lenny's
 // Archive)` across all string fields. Read-only — does not affect verifyArchiveCitations
 // or any scrubbing behavior. Called before and after verifyParsedCitations to answer
@@ -468,6 +487,7 @@ function verifyParsedCitations(parsed: Record<string, unknown>, corpus: string):
       let v = verifyArchiveCitations(value, corpus);
       v = verifyTrainingKnowledgeCitations(v);
       v = stripBareArchiveCitations(v);
+      v = stripMalformedTeamCitations(v);
       result[key] = v;
     } else {
       result[key] = value;
@@ -589,6 +609,7 @@ async function verifyAndCorrectParsedCitations(
         : verifyArchiveCitations(value, fallbackCorpusText);
       v = verifyTrainingKnowledgeCitations(v);
       v = stripBareArchiveCitations(v);
+      v = stripMalformedTeamCitations(v);
       result[key] = v;
     } else {
       result[key] = value;
