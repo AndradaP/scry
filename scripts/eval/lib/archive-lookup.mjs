@@ -51,22 +51,51 @@ const EMBED_DIM = 3072;
 // claim (the low end), only against real true-positive candidates.
 const SIMILARITY_THRESHOLD = 0.72;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const EMBED_RETRY_BACKOFFS_MS = [3_000, 10_000, 20_000];
+
+// Retries transient Gemini failures (429/503, and a raw network-level throw)
+// — confirmed happening for real, 2026-09-09: an unretried 503 here killed a
+// whole citation-verification run partway through, losing all progress since
+// this script batches its DB insert until the very end (see run-citation-
+// verification.mjs's main()). Same pattern as embed-lenny-corpus.mjs's
+// embedBatch, which needed the identical fix for the identical reason.
 async function embedClaim(text) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: { parts: [{ text: text.slice(0, 8000) }] } }),
+  let lastError;
+  for (let attempt = 0; attempt <= EMBED_RETRY_BACKOFFS_MS.length; attempt++) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: { parts: [{ text: text.slice(0, 8000) }] } }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        if ((res.status === 429 || res.status === 503) && attempt < EMBED_RETRY_BACKOFFS_MS.length) {
+          lastError = new Error(`embedContent failed (${res.status}): ${JSON.stringify(data).slice(0, 300)}`);
+        } else {
+          throw new Error(`embedContent failed (${res.status}): ${JSON.stringify(data).slice(0, 300)}`);
+        }
+      } else {
+        const data = await res.json();
+        const vec = data?.embedding?.values;
+        if (!Array.isArray(vec) || vec.length !== EMBED_DIM) {
+          throw new Error(`Unexpected embedding shape: length ${vec?.length}`);
+        }
+        return vec;
+      }
+    } catch (err) {
+      if (attempt >= EMBED_RETRY_BACKOFFS_MS.length) throw err;
+      lastError = err;
     }
-  );
-  const data = await res.json();
-  if (!res.ok) throw new Error(`embedContent failed (${res.status}): ${JSON.stringify(data).slice(0, 300)}`);
-  const vec = data?.embedding?.values;
-  if (!Array.isArray(vec) || vec.length !== EMBED_DIM) {
-    throw new Error(`Unexpected embedding shape: length ${vec?.length}`);
+    const wait = EMBED_RETRY_BACKOFFS_MS[attempt];
+    console.warn(`  [embedClaim retry: ${lastError.message}] waiting ${wait / 1000}s before retry ${attempt + 1}/${EMBED_RETRY_BACKOFFS_MS.length}`);
+    await sleep(wait);
   }
-  return vec;
+  throw lastError;
 }
 
 function cosineSimilarity(a, b) {
