@@ -435,6 +435,39 @@ evidence-backed causes, neither a quick patch:
    production to do a fresh, claim-scoped lookup post-generation (not just
    corpus-scoped-to-the-original-queries) — a meaningfully bigger change,
    not attempted.
+
+   **Refined on closer read (2026-09-10, post-session review):** the 34
+   remaining misattributed cases actually split into two different shapes,
+   not one:
+   - **Real, mechanical mismatch** (roughly half): the model's own prose
+     *already names the right person* ("mirrors **Noah Weiss's** approach,"
+     "**Katie Dill's** observation," "**Michael Truell's** insight") but the
+     citation badge still says `(Lenny Rachitsky, Host)` anyway. The
+     correction step isn't using the name already sitting in the sentence at
+     all — it only trusts embedding similarity against the bounded retrieval
+     pool.
+   - **Genuinely ambiguous, possibly not even wrong** (the other half): the
+     claim is a generic paraphrase naming nobody, and a *different* person's
+     episode happens to score as the closest re-check match — the same
+     "two real sources, near-tie" shape as the Duolingo growth-engine case
+     from Day 1. Re-scoring against a different search doesn't prove the
+     original citation was false.
+
+   **A real (not patch) fix exists for the first half, proposed but not
+   built:** before trusting similarity-based correction, first check whether
+   the claim's own sentence already names a real person — cross-reference
+   against the full list of real archive speakers we already have (every
+   `speaker` value in `lenny_corpus_chunks`). If the named person is a
+   verified real archive speaker, that's a stronger signal than similarity
+   math and should win. If the named person *isn't* verifiable as a real
+   archive speaker (e.g. Michael Porter — a real person Sonnet knows
+   generally, not necessarily an archive guest), the honest move is to drop
+   the citation parenthetical entirely rather than default to Lenny or
+   guess — the sentence stays, it just stops claiming archive provenance.
+   This does not touch the second half (the near-tie cases) — that still
+   needs the bigger "fresh claim-scoped lookup post-generation" fix noted
+   above.
+
 2. **Fabrication is the pre-existing, already-documented "generic expert
    name-dropping" problem, confirmed unrelated to anything built this week.**
    All 16 sampled fabricated citations show `evidence: no archive candidate
@@ -446,6 +479,31 @@ evidence-backed causes, neither a quick patch:
    scry-eval-status.md before any of this week's work started — confirmed
    still present, confirmed untouched by the chunk-based fix (which was
    never designed to address it).
+
+   **Open question, not resolved:** are these hallucinations (invented,
+   possibly false) or true facts Sonnet knows generally but mislabeled as
+   archive-sourced? Current tooling can't tell — it only checks "does this
+   match Lenny's archive," never "is this claim true in the real world."
+   Spot-reading a few by eye, some look like plausible real facts (Slack's
+   `@channel` warning dialog, Duolingo's China/India expansion stumbles are
+   both the kind of thing that's genuinely been publicly discussed) wearing
+   the wrong badge; others are specific enough (an exact freemium video
+   count, a hiring anecdote) that they can't be judged as true or invented
+   without an actual check. Distinguishing the two needs a live fact-check
+   against the real world, not just against the archive — the same
+   `lib/web-fact-check.mjs` machinery already built for `grounded_insight_value`
+   is directly reusable here (flagged there too), still just wiring, not new
+   design.
+
+**The unifying theme across both findings, worth stating plainly:** the
+system has no clean way to say "this specific piece of text is general
+knowledge, not archive-derived" — everything gets forced into an
+archive-citation-shaped box (kept, corrected, or stripped) rather than ever
+being allowed to just be true-but-uncited. Both the name-in-prose fix above
+and the fact-check-for-fabrication idea are really the same underlying
+capability from two different angles: telling apart "from Lenny's archive"
+vs. "from Claude's training / the general internet." Worth treating as one
+project if either gets picked up, not two.
 
 **Also fixed along the way, not part of the diagnosis above:**
 - Deploying this branch's generate-teardown/index.ts silently reverted the
