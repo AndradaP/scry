@@ -273,10 +273,24 @@ async function searchLennyChunks(
 
   const scored: Array<ArchiveChunk & { _sim: number }> = [];
   for (const cand of candidates as { filename: string; title: string; content_type: string; published_date: string | null }[]) {
+    // Capped, not unbounded: confirmed for real, 2026-09-10 — some podcast
+    // transcripts have 300+ chunks (each a 3072-float embedding), and
+    // fetching every chunk for every one of 5 candidates across 7 queries
+    // per generation crashed the Edge Function outright with
+    // WORKER_RESOURCE_LIMIT on 2 of 12 real products. Ordered by
+    // chunk_index for a deterministic (if imperfect) subset rather than an
+    // arbitrary one. The real fix is ranking by similarity *in Postgres*,
+    // scoped to this one filename (cheap — a few hundred rows at most, not
+    // the whole 46k-row corpus that timed out earlier tonight) instead of
+    // transferring every embedding over the network to rank in JS; that
+    // needs a new scoped RPC (a migration), not available in this session
+    // — noted in docs/scry-eval-status.md backlog.
     const { data: chunks } = await supabase
       .from("lenny_corpus_chunks")
       .select("chunk_text, speaker, speaker_role, embedding")
-      .eq("filename", cand.filename);
+      .eq("filename", cand.filename)
+      .order("chunk_index")
+      .limit(60);
     if (!chunks) continue;
     for (const ch of chunks as { chunk_text: string; speaker: string | null; speaker_role: string | null; embedding: string }[]) {
       let vec: number[];
