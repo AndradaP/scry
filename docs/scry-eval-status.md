@@ -388,6 +388,22 @@ decision, not a snap model pick.
   `supabase/migrations/`).
 - Resolve AI's archive fallback never triggering (name-collision bug, found
   during the unknown-product query-fix testing, not fixed).
+- **Entailment/faithfulness gap in the 2026-09-09 chunk-based citation fix**:
+  the fix (embedding-similarity match against retrieved chunks) corrects
+  misattribution (wrong person cited) and catches fabrication (no real
+  source), but cannot catch a claim that cites the *right* person/source
+  while still distorting the actual content — similarity measures topical
+  closeness, not factual correctness. A paraphrase can sit close enough to a
+  real chunk to pass while quietly exaggerating a number, inverting a
+  conclusion, or adding a detail that isn't there. Fixing this needs a
+  different mechanism — a lightweight entailment/faithfulness check ("does
+  this excerpt actually support this claim: yes/no/partially"), the same
+  shape as `classifyGroundedness()` in the `grounded_insight_value` work, not
+  a bigger similarity threshold. Deliberately out of scope this week —
+  unmeasured whether it's a real problem in practice (everything sampled so
+  far was misattribution, not distortion-with-correct-attribution); worth
+  checking the "verified" bucket for this once the chunk-based fix ships,
+  before deciding whether to build it.
 
 ## Process note, since you're consolidating into Code
 

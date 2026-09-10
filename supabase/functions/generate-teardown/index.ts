@@ -167,6 +167,142 @@ ${userTeardown}`;
 }
 
 
+// ---- Chunk-based semantic retrieval + self-correcting citations ----
+// Added 2026-09-09 to fix a confirmed, measured bug: archive citations were
+// only 20% precise (18/90 verified) because the model had to infer, from raw
+// undifferentiated transcript text, who said what — and it systematically
+// confused the host's paraphrased commentary for the guest's original words
+// (a claim's generated wording is summary-shaped, and so is the host's own
+// commentary, so the two keep matching each other in similarity space). The
+// fix: retrieve real chunks with real speaker metadata attached as actual
+// data (lenny_corpus_chunks.speaker/speaker_role, captured once when the
+// corpus was chunked, not inferred per-citation), and never trust the
+// model's own claimed attribution — always resolve it against that data
+// after generation. See scripts/eval/lib/archive-lookup.mjs for the
+// original, validated version of this same approach (built for the eval;
+// this ports it into live generation).
+//
+// Known, deliberate limitation, not fixed here: this corrects misattribution
+// (wrong person) and fabrication (no real source) — it cannot catch a claim
+// that cites the *right* person while distorting the actual content, since
+// similarity measures topical closeness, not factual correctness. See
+// docs/scry-eval-status.md's backlog for why that's a separate mechanism,
+// deliberately out of scope this week.
+
+const GEMINI_EMBED_MODEL = "gemini-embedding-2";
+const GEMINI_EMBED_DIM = 3072;
+
+interface ArchiveChunk {
+  text: string;
+  speaker: string | null;
+  speaker_role: string | null;
+  title: string;
+  content_type: string;
+  published_date: string | null;
+  filename: string;
+  embedding: number[];
+}
+
+// Never throws — a missing key, a down API, or a malformed response all
+// degrade to null so retrieval/correction can fall back to the old
+// FTS-only / name-presence-only behavior rather than breaking generation
+// outright. Reliability of the live product matters more than this specific
+// improvement always firing.
+async function embedText(text: string): Promise<number[] | null> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY") ?? "";
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:embedContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: { parts: [{ text: text.slice(0, 8000) }] } }),
+      },
+    );
+    if (!res.ok) {
+      console.error("embedText failed:", res.status, await res.text());
+      return null;
+    }
+    const data = await res.json();
+    const vec = data?.embedding?.values;
+    if (!Array.isArray(vec) || vec.length !== GEMINI_EMBED_DIM) {
+      console.error("embedText: unexpected embedding shape", vec?.length);
+      return null;
+    }
+    return vec;
+  } catch (e) {
+    console.error("embedText error:", e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+// Chunk-based retrieval: the same FTS RPC as searchLennyData narrows to
+// candidate documents first (cheap, unchanged), then real chunks (with real
+// speaker metadata) are fetched for those candidates and reranked by
+// embedding similarity to the query. Kept to 5 candidate documents (not the
+// 15 used in the offline eval matcher) to bound per-request latency/DB
+// payload in a live, user-facing request — this is a live-traffic tradeoff,
+// not a correctness one; worth re-measuring once real latency is observed.
+// Returns [] (never throws) if the query couldn't be embedded or nothing
+// matched — the caller falls back to the old flat-text path in that case.
+async function searchLennyChunks(
+  query: string,
+  contentType = "",
+  limit = 5,
+): Promise<ArchiveChunk[]> {
+  const queryVec = await embedText(query);
+  if (!queryVec) return [];
+
+  const { data: candidates, error } = await supabase.rpc("search_lenny_corpus", {
+    q: query,
+    match_limit: 5,
+    filter_type: contentType,
+  });
+  if (error || !Array.isArray(candidates) || candidates.length === 0) return [];
+
+  const scored: Array<ArchiveChunk & { _sim: number }> = [];
+  for (const cand of candidates as { filename: string; title: string; content_type: string; published_date: string | null }[]) {
+    const { data: chunks } = await supabase
+      .from("lenny_corpus_chunks")
+      .select("chunk_text, speaker, speaker_role, embedding")
+      .eq("filename", cand.filename);
+    if (!chunks) continue;
+    for (const ch of chunks as { chunk_text: string; speaker: string | null; speaker_role: string | null; embedding: string }[]) {
+      let vec: number[];
+      try {
+        vec = JSON.parse(ch.embedding);
+      } catch {
+        continue;
+      }
+      scored.push({
+        text: ch.chunk_text,
+        speaker: ch.speaker,
+        speaker_role: ch.speaker_role,
+        title: cand.title,
+        content_type: cand.content_type,
+        published_date: cand.published_date,
+        filename: cand.filename,
+        embedding: vec,
+        _sim: cosineSimilarity(queryVec, vec),
+      });
+    }
+  }
+
+  scored.sort((a, b) => b._sim - a._sim);
+  return scored.slice(0, limit);
+}
+
 // Full-text search over the local Lenny corpus mirror (public.lenny_corpus),
 // through the search_lenny_corpus() RPC. Returns SOURCE-delimited excerpt blocks
 // in the same shape the retired LennyData MCP produced, or "" when nothing hits.
@@ -330,6 +466,127 @@ function verifyParsedCitations(parsed: Record<string, unknown>, corpus: string):
   for (const [key, value] of Object.entries(parsed)) {
     if (typeof value === "string") {
       let v = verifyArchiveCitations(value, corpus);
+      v = verifyTrainingKnowledgeCitations(v);
+      v = stripBareArchiveCitations(v);
+      result[key] = v;
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+// ---- Self-correcting archive citations (chunk pool required) ----
+// Replaces name-presence checking (verifyArchiveCitations, kept above as the
+// fallback for when no chunk pool is available) with real resolution: match
+// each citation's claim against the actual chunks retrieved for this
+// generation, and force the byline to whatever that chunk's real speaker is
+// — never trust the model's own claimed attribution as final.
+
+const CITATION_SIMILARITY_THRESHOLD = 0.72; // same value validated 2026-09-09 in archive-lookup.mjs
+
+function namesRoughlyMatch(a: string, b: string): boolean {
+  const na = a.toLowerCase().trim();
+  const nb = b.toLowerCase().trim();
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+// Walks back from a citation to the nearest sentence boundary to isolate the
+// substantive claim being cited, capped at a fixed window so one long
+// run-on paragraph can't pull in unrelated prior sentences.
+function extractClaimBeforeCitation(text: string, citationStart: number): string {
+  const WINDOW = 400;
+  const start = Math.max(0, citationStart - WINDOW);
+  const preceding = text.slice(start, citationStart);
+  const lastBreak = Math.max(
+    preceding.lastIndexOf(". "),
+    preceding.lastIndexOf("! "),
+    preceding.lastIndexOf("? "),
+    preceding.lastIndexOf("\n"),
+  );
+  return (lastBreak >= 0 ? preceding.slice(lastBreak + 2) : preceding).trim();
+}
+
+async function verifyAndCorrectArchiveCitations(text: string, chunkPool: ArchiveChunk[]): Promise<string> {
+  const blockRegex = /\(([^)]+·\s*Lenny's Archive[^)]*)\)/g;
+  const blocks: Array<{ full: string; inner: string; index: number }> = [];
+  let match;
+  while ((match = blockRegex.exec(text)) !== null) {
+    blocks.push({ full: match[0], inner: match[1], index: match.index });
+  }
+
+  let result = text;
+  const strippedNames: string[] = [];
+
+  for (const { full, inner, index } of blocks) {
+    const parts = inner.split(";").map((p) => p.trim());
+    const claim = extractClaimBeforeCitation(text, index);
+    if (!claim) continue; // no usable context — leave this citation untouched rather than guess
+
+    const claimVec = await embedText(claim);
+    if (!claimVec) continue; // embedding failed; leave untouched rather than strip on a false negative
+
+    let best: { chunk: ArchiveChunk; sim: number } | null = null;
+    for (const chunk of chunkPool) {
+      const sim = cosineSimilarity(claimVec, chunk.embedding);
+      if (!best || sim > best.sim) best = { chunk, sim };
+    }
+
+    const resolvedParts: string[] = [];
+    for (const part of parts) {
+      const nameMatch = part.match(/^([^,·]+)[,·]/);
+      if (!nameMatch) continue; // malformed, drop silently — same as verifyArchiveCitations
+      const claimedName = nameMatch[1].trim();
+
+      if (best && best.sim >= CITATION_SIMILARITY_THRESHOLD && best.chunk.speaker) {
+        if (namesRoughlyMatch(claimedName, best.chunk.speaker)) {
+          // Already correct — keep the model's own (more specific) role text.
+          resolvedParts.push(part);
+        } else {
+          // Misattributed — override. Real data only gives a coarse
+          // host/guest role, not a specific title; a generic but CORRECT
+          // role beats a specific but WRONG one, so don't invent a fake title.
+          const roleLabel = best.chunk.speaker_role === "host" ? "Host" : "Guest";
+          resolvedParts.push(`${best.chunk.speaker}, ${roleLabel} · Lenny's Archive`);
+          console.log(`Corrected citation: "${claimedName}" -> "${best.chunk.speaker}" (sim ${best.sim.toFixed(2)})`);
+        }
+      } else {
+        strippedNames.push(claimedName);
+        console.log(`Stripping unsupported citation: ${part} (best sim ${best?.sim?.toFixed(2) ?? "n/a"})`);
+      }
+    }
+
+    if (resolvedParts.length === 0) {
+      result = result.replace(new RegExp("\\s*" + full.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "");
+    } else if (resolvedParts.length !== parts.length || resolvedParts.some((p, i) => p !== parts[i])) {
+      result = result.replace(full, `(${resolvedParts.join("; ")})`);
+    }
+  }
+
+  for (const name of strippedNames) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(new RegExp(`\\b${escaped}'s\\b`, "gi"), "the team's");
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "the team");
+  }
+
+  return result.trim();
+}
+
+// Drop-in replacement for verifyParsedCitations: uses the chunk pool when
+// available (real speaker data, self-correcting); gracefully degrades to the
+// old name-presence check when it isn't (Gemini down, no API key, or
+// genuinely nothing retrieved at the chunk level for this whole generation).
+async function verifyAndCorrectParsedCitations(
+  parsed: Record<string, unknown>,
+  chunkPool: ArchiveChunk[],
+  fallbackCorpusText: string,
+): Promise<Record<string, unknown>> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value === "string") {
+      let v = chunkPool.length > 0
+        ? await verifyAndCorrectArchiveCitations(value, chunkPool)
+        : verifyArchiveCitations(value, fallbackCorpusText);
       v = verifyTrainingKnowledgeCitations(v);
       v = stripBareArchiveCitations(v);
       result[key] = v;
@@ -655,16 +912,49 @@ ${teardownContext}`;
     const webQuery = `${productName} product strategy 2026`;
 
     const allLennyQueries = [productName ?? "", ...searchQueries];
-    // diags[i] is filled in as a side effect of the matching searchLennyData call
-    // when includeDebug is on; it never alters the request or the returned string.
+    // diags[i] is filled in as a side effect of the matching resolveLennyQuery
+    // call when includeDebug is on; it never alters the request or returned text.
     const lennyDiags: Record<string, unknown>[] = allLennyQueries.map(() => ({}));
-    const [lennyResults, webSearchResult] = await Promise.all([
-      Promise.all(allLennyQueries.map((q, i) => searchLennyData(q, 5, "", includeDebug ? lennyDiags[i] : undefined))),
+
+    // Chunk-based retrieval first (real speaker metadata, used for both the
+    // prompt and the post-generation citation correction below); falls back
+    // per-query to the old flat-text FTS path if embedding fails or nothing
+    // matched at the chunk level, so retrieval never hard-fails.
+    async function resolveLennyQuery(
+      query: string,
+      diag?: Record<string, unknown>,
+    ): Promise<{ text: string; chunks: ArchiveChunk[] }> {
+      const chunks = await searchLennyChunks(query, "", 5);
+      if (chunks.length > 0) {
+        if (diag) {
+          diag.mode = "semantic_chunks";
+          diag.parsed_result_count = chunks.length;
+        }
+        const text = chunks
+          .map((c) => {
+            const speakerLabel = c.speaker ? ` — speaker: ${c.speaker} (${c.speaker_role ?? "unknown"})` : "";
+            return `SOURCE: ${c.title} (${c.content_type}, ${c.published_date ?? "n.d."}${speakerLabel})\n${c.text}`;
+          })
+          .join("\n\n---\n\n");
+        return { text, chunks };
+      }
+      const fallbackText = await searchLennyData(query, 5, "", diag);
+      if (diag) diag.mode = "fts_fallback";
+      return { text: fallbackText, chunks: [] };
+    }
+
+    const [lennyResolved, webSearchResult] = await Promise.all([
+      Promise.all(allLennyQueries.map((q, i) => resolveLennyQuery(q, includeDebug ? lennyDiags[i] : undefined))),
       searchWeb(webQuery),
     ]);
 
+    const lennyResults = lennyResolved.map((r) => r.text);
+    // Pooled across every query for this generation — reused by the citation
+    // correction step below with zero extra retrieval cost, since it's the
+    // same context Sonnet is about to read.
+    const chunkPool: ArchiveChunk[] = lennyResolved.flatMap((r) => r.chunks);
     const lennyCorpus = lennyResults.filter(Boolean).join("\n\n===\n\n");
-    console.log("Lenny corpus length:", lennyCorpus.length);
+    console.log("Lenny corpus length:", lennyCorpus.length, "| chunk pool size:", chunkPool.length);
     console.log("Web context length:", webSearchResult.text.length);
 
     // Eval-only diagnostics: per-query retrieval size/counts plus the RPC error
@@ -773,9 +1063,9 @@ ${digitalProductsConstraint}`;
       parsed = await callMainModel(systemPrompt, userMessage);
     }
 
-    // ── Verify archive citations across all sections ──────────────────────────
+    // ── Verify + self-correct archive citations across all sections ──────────
     const citationsWritten = includeDebug ? countArchiveCitations(parsed) : undefined;
-    parsed = verifyParsedCitations(parsed, lennyCorpus);
+    parsed = await verifyAndCorrectParsedCitations(parsed, chunkPool, lennyCorpus);
     const citationsSurvived = includeDebug ? countArchiveCitations(parsed) : undefined;
 
     // ── Lenny's Lens: sequential, informed by main teardown output ────────────
