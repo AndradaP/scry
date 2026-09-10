@@ -405,6 +405,72 @@ decision, not a snap model pick.
   checking the "verified" bucket for this once the chunk-based fix ships,
   before deciding whether to build it.
 
+## 2026-09-10 — chunk-based citation fix shipped, re-verified, two remaining root causes diagnosed and NOT fixed (by design — see below)
+
+Full re-run after the 2026-09-09 fix (chunk-based retrieval + self-correcting
+citations, deployed) plus the restored zero-coverage fallback (see below):
+archive-only citation precision **20.0% (18/90) → 47.9% (46/96)** — misattribution
+roughly halved (58 → 34), fabrication flat (14 → 16, expected — the fix was
+never meant to touch it). Still fails the 90% gate. Sampled all 34 remaining
+misattributed + all 16 remaining fabricated cases before stopping (explicit
+call: no further fix-and-redeploy cycles this session). Two distinct,
+evidence-backed causes, neither a quick patch:
+
+1. **Bounded-retrieval misattribution (new pattern, not last night's).**
+   The dominant remaining misattribution shape: the model's own prose
+   correctly names a real archive person ("mirrors Hila Qu's framework,"
+   "Noah Weiss calls...") but the citation still says `(Lenny Rachitsky,
+   Host)`. Cause: the production correction step (generate-teardown) can
+   only resolve a citation against chunks *actually retrieved that
+   generation* — 5 candidate docs × 7 topic queries. When Sonnet name-drops
+   a real archive person from its own training knowledge rather than from
+   retrieved content, that person's chunk was never in the pool to correct
+   against, so the citation stays wrong or gets reassigned to whatever
+   similar-topic chunk *was* retrieved (often Lenny). The eval's independent
+   per-claim check (archive-lookup.mjs, unbounded, searches fresh per claim)
+   finds the real person; production's bounded per-generation retrieval
+   structurally can't. This is the same "candidate pool too narrow" shape as
+   the original archive-lookup.mjs bug, recurring one layer up, at
+   generation time instead of verification time. Real fix would need
+   production to do a fresh, claim-scoped lookup post-generation (not just
+   corpus-scoped-to-the-original-queries) — a meaningfully bigger change,
+   not attempted.
+2. **Fabrication is the pre-existing, already-documented "generic expert
+   name-dropping" problem, confirmed unrelated to anything built this week.**
+   All 16 sampled fabricated citations show `evidence: no archive candidate
+   found` — not "found something, didn't match," literally nothing in the
+   archive for that claim's wording even at a 15-candidate search width.
+   Claims read like real training-knowledge facts (Slack's "rooster warning
+   before @channel," a Webflow hiring anecdote) wearing an archive-citation
+   costume that doesn't belong. This is the same problem named in
+   scry-eval-status.md before any of this week's work started — confirmed
+   still present, confirmed untouched by the chunk-based fix (which was
+   never designed to address it).
+
+**Also fixed along the way, not part of the diagnosis above:**
+- Deploying this branch's generate-teardown/index.ts silently reverted the
+  already-live, never-merged "unknown-product query-fix"
+  (`worktree-agent-ac6ca54aa6a14cafa`, commit 2c9dfe6) — it was deployed
+  out-of-band from git, so a git-based deploy of an older base overwrote it.
+  Cherry-picked back in and reconciled with the chunk-based retrieval (the
+  zero-coverage fallback query now also goes through the chunk-aware
+  resolver, not the old flat-text path, so it benefits from real speaker
+  metadata too). **This branch should be merged to main with both fixes
+  together, not just the citation fix alone** — deploying only one half
+  again would silently re-break the other.
+- `WORKER_RESOURCE_LIMIT` crash confirmed for real (2 of 12 first-batch
+  regenerations): unbounded per-document chunk fetch (some transcripts have
+  300+ chunks) blew Edge Function memory. Capped at 60/document, ordered by
+  chunk_index. Real fix is ranking by similarity in Postgres scoped to one
+  filename (a new RPC/migration) instead of transferring every embedding
+  over the network to rank in JS — not available this session, noted above
+  in the retrieval code itself too.
+
+**Decision not yet made**: whether to proceed to the LLM-judge comparison
+with citation precision still below gate (treating it as informative
+context rather than an absolute blocker, given the trajectory and now-named
+causes), or hold judging until one or both root causes above are addressed.
+
 ## Process note, since you're consolidating into Code
 
 Claude Code can hold real planning conversations now too, not just execute,
