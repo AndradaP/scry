@@ -53,8 +53,12 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+// EVAL_PRODUCTS: comma-separated override for a partial run (e.g. an
+// 8-of-12 cost-reduced batch) without touching the full default list below.
 const PRODUCTS = process.env.EVAL_SMOKE_TEST
   ? ["Figma"]
+  : process.env.EVAL_PRODUCTS
+  ? process.env.EVAL_PRODUCTS.split(",").map((p) => p.trim())
   : [
       "Figma", "Notion", "Slack", "Linear", "Duolingo",
       "Loom", "Calendly", "Webflow",
