@@ -1,9 +1,47 @@
 # Scry Eval — Status & Handoff
 
-*Written for continuity across Claude Code sessions. Last updated: Sep 6,
+*Written for continuity across Claude Code sessions. Last updated: Sep 13,
 2026. Everything below "What actually happened (progress log)" through Aug
-29 is left as history; the Sep 2026 section and the rewritten "What's left"
-below it are the current state — read those first.*
+29 is left as history; the Sep 2026 sections below it (in date order) are
+the current state — read those first, and read this snapshot before
+diving into the detailed log.*
+
+## Snapshot — where things actually stand (2026-09-13)
+
+**Why this eval exists** (unpacked below): does Scry's Lenny-corpus layer
+produce analysis a general model with web access can't — evidence, not
+intuition, before committing further to the product direction.
+
+**What's been proven so far, in order:**
+- The original word-overlap citation matcher had a real, structural ceiling
+  (a genuinely correct match scored *lower* than a genuinely wrong one, no
+  threshold could fix it) — replaced with real embedding-based matching,
+  validated against the exact cases that exposed the ceiling.
+- That fix, ported into live generation as a self-correcting citation
+  mechanism (never trust the model's claimed attribution — always resolve
+  it against real retrieved chunk metadata), moved archive-only citation
+  precision **20.0% → 47.9%** — real, substantial, still short of the 90%
+  gate. The two remaining causes are named and diagnosed, not mysterious
+  (see the 2026-09-10 section) — deliberately not fixed further this week.
+- Two real production bugs were found and fixed along the way: an Edge
+  Function memory crash on large transcripts, and a silent revert of an
+  already-live, separately-developed fix (both documented below).
+- The LLM-judge comparison (cost-reduced to 8 of 12 products, preserving the
+  coverage-tier stratification) is underway and, on the 4 products judged so
+  far, showing a consistent, honest picture: scry wins the large majority of
+  framework/positioning/coherence comparisons against both baselines, with
+  real exceptions kept in (one genuine loss, one caught instance of judge
+  self-preference bias — see below). The standout finding is groundedness:
+  scry's claims check out as grounded (archive or web) at 85-100% across
+  every product judged so far, independently confirmed by both judge
+  families, against near-zero for the no-tools baseline.
+- The run has been interrupted twice by exhausted API credits (Anthropic,
+  then Gemini) — the idempotent skip-on-already-judged design meant zero
+  data loss both times, just a clean resume.
+
+**Not yet decided:** the actual Day 3 verdict against the pre-committed
+decision gates below — waiting on the remaining 4 products (Loom, Calendly,
+Nuvo, Resolve AI) to finish judging.
 
 ## The actual question this eval answers
 
