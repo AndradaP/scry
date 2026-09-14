@@ -694,6 +694,21 @@ work" call.
 Day 4 code (`Generate.tsx`, `generate-teardown/index.ts`) verified working
 end-to-end on the deployed backend and committed.
 
+**Follow-up same day: simplified lens+angle down to one field.** Walking
+through it out loud surfaced a real design gap — the 4 lens buttons
+(General/Pricing/Growth/Retention) didn't map onto the actual 6 output
+sections *or* the 6 internal retrieval dimensions (three different lists,
+confirmed by reading the code), and an angle typed with no lens picked
+already did the same "narrow the output" job a lens was for, just without
+the retrieval-side benefit. Collapsed both into a single optional "Anything
+specific you'd like to focus on?" text field. Confirmed first (by reading
+the code) that there's no cost or latency difference either way — both
+were always just strings spliced into prompts that fire on every request
+regardless of whether they're set. Re-verified end-to-end on the deployed
+function (Calendly, focus = "pricing against competitors" → Key Insights
+named actual competitors and reasoned about pricing against them).
+Committed.
+
 ## Process note, since you're consolidating into Code
 
 Claude Code can hold real planning conversations now too, not just execute,
