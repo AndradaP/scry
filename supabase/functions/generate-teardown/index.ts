@@ -52,9 +52,25 @@ const DIMENSION_SEEDS = [
   "onboarding|UX|activation|aha moment|time to value",
 ];
 
+// lens/angle: optional upfront narrowing from the user (a primary analytical
+// lens — pricing/growth/retention — plus free-text angle) added 2026-09,
+// serving the PM comp-analysis use case where the analyst already knows
+// which dimension they care about most. Both are additive hints, not a
+// restriction — all 6 dimension queries still get populated regardless, so
+// the teardown never loses full-spectrum coverage just because a lens was
+// picked.
 async function generateSearchQueries(
   productName?: string,
+  lens?: string,
+  angle?: string,
 ): Promise<string[]> {
+  const lensInstruction = lens
+    ? `\n\nThe user has indicated a primary interest in: ${lens.toUpperCase()}. Weight the corresponding dimension's query with extra, more specific terms, and where genuinely relevant let this focus inform the other dimension queries too — but populate all 6, never drop a dimension entirely just because it isn't the primary lens.`
+    : "";
+  const angleInstruction = angle
+    ? `\n\nSpecific angle the user wants addressed: "${angle}". Fold this into whichever dimension quer(y/ies) it's actually relevant to.`
+    : "";
+
   const prompt = `You are preparing search queries for a product teardown of: "${productName}"
 
 Each query targets a specific analytical dimension. For each dimension, you are given seed terms that always work. Extend each seed with 2-3 pipe-delimited terms specific to "${productName}"'s category, business model, and competitive context. Use your knowledge of the product. If the product is unfamiliar, return the seed terms unchanged.
@@ -66,6 +82,7 @@ Output ONLY a valid JSON array of exactly 6 strings, one per dimension, in this 
 4. Retention & Engagement — seed: retention|habit|engagement|churn|stickiness
 5. Business & Revenue — seed: business model|monetization|pricing|revenue model
 6. UX & Onboarding — seed: onboarding|UX|activation|aha moment|time to value
+${lensInstruction}${angleInstruction}
 
 No explanation. No markdown. No preamble. Valid JSON array only.
 Scry analyzes digital products only — software, apps, and SaaS. Do not generate terms related to hardware, manufacturing, supply chain, or physical products.`;
@@ -822,7 +839,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId, timezone, debug } = body;
+    const { productName, mode, userTeardown, chatMessages, teardownContext, teardownId, timezone, debug, lens, angle } = body;
 
     const { userId, userEmail } = getUserFromJwt(req.headers.get("Authorization"));
     const isDevUser = userEmail === DEV_EMAIL;
@@ -977,8 +994,8 @@ ${teardownContext}`;
     let scope = "product";
 
     if (mode === "generate") {
-      console.log("Generating search queries for:", productName);
-      searchQueries = await generateSearchQueries(productName);
+      console.log("Generating search queries for:", productName, lens ? `(lens: ${lens})` : "");
+      searchQueries = await generateSearchQueries(productName, lens, angle);
     } else {
       console.log("Generating critique context for:", productName);
       const critiqueContext = await generateCritiqueContext(productName ?? "", userTeardown ?? "");
@@ -1141,6 +1158,13 @@ strengths and lennys_lens are unconditional regardless of scope.`;
 
     const critiqueSourceConstraint = `ADDITIONAL CITATION RULE FOR CRITIQUE MODE: Do not cite any person whose name appears in the user's submitted teardown — names inherited from the user's text do not qualify as Lenny's Archive sources regardless of whether they are real experts. The citation rules in sourceInstruction above apply in full.`;
 
+    // Optional upfront narrowing (generate mode only) — additive, not
+    // restrictive: deepens treatment of the chosen lens without letting any
+    // of the 6 sections go thin just because it wasn't the primary interest.
+    const lensConstraint = (mode === "generate" && (lens || angle))
+      ? `\nUSER-REQUESTED FOCUS:\n${lens ? `Primary lens: ${String(lens).toUpperCase()}. Give this dimension deeper, more specific treatment than the others throughout the teardown — more concrete detail, more direct opinions — while still fully covering all 6 sections. Do not skip or thin out any section just because it isn't the primary lens.\n` : ""}${angle ? `Specific angle to address: "${angle}". Work this in wherever it's genuinely relevant, without forcing it into a section where it doesn't fit.\n` : ""}`
+      : "";
+
     const systemPrompt = mode === "critique"
       ? `You are a world-class product coach with access to insights from Lenny Rachitsky's podcast and newsletter archive, plus current web context.
 
@@ -1178,7 +1202,7 @@ Throughout each section, attribute insights inline using the formats defined abo
 Where the archive contains differing perspectives between experts, surface that tension explicitly rather than flattening it.
 
 If the input refers to a specific feature or flow rather than a full product or company, scope all sections to that feature. Do not extrapolate to company-level strategy or growth models beyond what directly relates to the feature being analyzed.
-
+${lensConstraint}
 ${digitalProductsConstraint}`;
 
     const userMessage = mode === "critique"

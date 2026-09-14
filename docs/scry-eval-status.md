@@ -640,6 +640,60 @@ that should shape how this gets shown to anyone next: citation
 *grounding* (is it true/sourced at all) is strong. Those are different
 claims, and conflating them would overstate where things actually stand.
 
+## 2026-09-13 (cont.) — Day 4: narrowing feature (lens + angle) shipped
+
+Decision from the Day 3 verdict was Option A (see sprint log): ship on the
+original schedule, disclose the citation-attribution caveat honestly rather
+than delay for a full fix. Hobby-project pace — presentable and fast, not
+perfect.
+
+Built the narrowing feature planned for Day 4: 1-2 upfront bounding
+questions before generation, so the teardown can go deep on what the user
+actually asked for instead of spreading evenly across 6 fixed sections.
+
+- **Frontend** (`src/pages/Generate.tsx`): a "Primary lens" control
+  (General/Pricing/Growth/Retention, styled as underline-tabs to match the
+  existing convention) plus an optional free-text "angle" field, both sent
+  to the Edge Function as `lens`/`angle`.
+- **Backend** (`supabase/functions/generate-teardown/index.ts`):
+  `generateSearchQueries` now weights the query for the matching dimension
+  (and lets the lens inform the others where relevant, without dropping
+  any), and the generate-mode system prompt gets an explicit instruction to
+  give the lensed dimension deeper, more specific treatment while still
+  covering all 6 sections.
+- Both files type-check clean (`deno check`, `tsc --noEmit`).
+- Deployed (`supabase functions deploy generate-teardown`) — the local dev
+  frontend talks to the real deployed backend, so this had to happen before
+  a browser test could mean anything.
+- End-to-end verified in the browser against the deployed function:
+  - **Notion, lens=Pricing, angle="how do they handle team-plan pricing
+    tiers"** — Key Insights opened with a pricing-specific insight (seat-based
+    → usage-based billing shift) that directly answered the angle, archive
+    + web citations rendered clean, no malformed citation artifacts.
+  - **Duolingo, lens=Growth, no angle** — confirms the lens-only path (no
+    angle text) also works.
+
+Duolingo output confirmed the same bar: Growth Model, Key Insights, and
+Lenny's Lens all concentrated on the retention/DAU mechanics (streak-driven
+loss aversion, day 0-7 optimization, the 2026 monetization-delay bet) the
+Growth lens was supposed to surface, with no angle text supplied — so the
+lens-only path (no angle) works too.
+
+**New citation finding, logged not fixed** (same backlog bucket as the
+2026-09-10 attribution diagnosis, not a lens/angle regression): the Duolingo
+output contains "the team explains the strategic communication approach:
+communication is not just conveying a message..." in Strategy & Positioning
+— a bare prose attribution to "the team," not a formatted citation. The
+existing `stripMalformedTeamCitations` safety net only strips the
+parenthetical form ("(the team, ROLE · Lenny's Archive)"); it doesn't catch
+"the team" used as a sentence subject in running prose. Same root cause
+category as the two named causes in the 2026-09-10 section — not chasing it
+further this week per the Option A "ship, disclose, don't re-open citation
+work" call.
+
+Day 4 code (`Generate.tsx`, `generate-teardown/index.ts`) verified working
+end-to-end on the deployed backend and committed.
+
 ## Process note, since you're consolidating into Code
 
 Claude Code can hold real planning conversations now too, not just execute,
