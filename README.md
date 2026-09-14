@@ -17,7 +17,8 @@ Both modes include a chat interface for follow-up questions, grounded in the sam
 - React + Vite
 - Supabase (auth, Postgres, Edge Functions)
 - Anthropic Claude API
-- Lenny's Data (podcast transcripts + newsletter archive)
+- Google Gemini (embeddings for archive citation retrieval)
+- Lenny's Data (podcast transcripts + newsletter archive, mirrored locally)
 - Exa (live web search)
 - Vercel (hosting)
 
