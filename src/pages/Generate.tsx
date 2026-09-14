@@ -24,13 +24,6 @@ const GENERATE_SECTIONS = [
   { key: "lennys_lens", label: "Lenny's Lens" },
 ];
 
-const LENS_OPTIONS = [
-  { value: "general", label: "General" },
-  { value: "pricing", label: "Pricing" },
-  { value: "growth", label: "Growth" },
-  { value: "retention", label: "Retention" },
-];
-
 const LOADING_MESSAGES = [
   "Summoning Lenny's council...",
   "Analyzing product strategy...",
@@ -48,8 +41,7 @@ interface ChatMessage {
 const Generate = () => {
   const { id } = useParams<{ id?: string }>();
   const [productName, setProductName] = useState("");
-  const [lens, setLens] = useState("general");
-  const [angle, setAngle] = useState("");
+  const [focus, setFocus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [teardown, setTeardown] = useState<Record<string, string> | null>(null);
   const [productUrl, setProductUrl] = useState("");
@@ -123,8 +115,7 @@ const Generate = () => {
           body: JSON.stringify({
             productName,
             mode: "generate",
-            lens: lens === "general" ? undefined : lens,
-            angle: angle.trim() || undefined,
+            focus: focus.trim() || undefined,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
         }
@@ -315,31 +306,15 @@ const Generate = () => {
 
             <div className="mt-8">
               <label className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">
-                Primary lens <span className="normal-case tracking-normal text-muted-foreground/40">(optional)</span>
+                Anything specific you'd like to focus on? <span className="normal-case tracking-normal text-muted-foreground/40">(optional)</span>
               </label>
-              <div className="flex gap-5 mt-3">
-                {LENS_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setLens(option.value)}
-                    className={`pb-1 text-sm font-body transition-colors border-b-2 -mb-px ${
-                      lens === option.value
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
               <input
                 type="text"
-                value={angle}
-                onChange={(e) => setAngle(e.target.value)}
+                value={focus}
+                onChange={(e) => setFocus(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-                placeholder="Optional: anything specific to focus on?"
-                className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 mt-4 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
+                placeholder="e.g. pricing against competitors or growth drivers"
+                className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 mt-3 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
               />
             </div>
 
