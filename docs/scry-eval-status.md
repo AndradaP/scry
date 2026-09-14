@@ -35,13 +35,19 @@ intuition, before committing further to the product direction.
   scry's claims check out as grounded (archive or web) at 85-100% across
   every product judged so far, independently confirmed by both judge
   families, against near-zero for the no-tools baseline.
-- The run has been interrupted twice by exhausted API credits (Anthropic,
-  then Gemini) — the idempotent skip-on-already-judged design meant zero
-  data loss both times, just a clean resume.
+- The run finished — 224/224 judge comparisons complete across all 8
+  products, interrupted 3 more times by exhausted API credits along the way
+  (idempotent skip-on-already-judged meant zero data loss each time).
 
-**Not yet decided:** the actual Day 3 verdict against the pre-committed
-decision gates below — waiting on the remaining 4 products (Loom, Calendly,
-Nuvo, Resolve AI) to finish judging.
+**The Day 3 verdict (full detail below, 2026-09-13 section): the thesis
+holds, with a real asterisk.** Framework application is a clean 32/32 sweep
+— zero losses, zero ties, every product, every baseline, every judge.
+Groundedness (25/32) is the standout, confirmed independently by both judge
+families, and holds up even on zero-coverage products (no collapse, contrary
+to one of the pre-committed gate scenarios). Coherence/actionability is the
+honest soft spot (14/32, real losses kept in, not hidden). The citation
+precision gate (<90% → fix first) technically still fires at 47.9% — the
+analysis quality is real, but citation attribution is only half-fixed.
 
 ## The actual question this eval answers
 
@@ -562,10 +568,77 @@ project if either gets picked up, not two.
   over the network to rank in JS — not available this session, noted above
   in the retrieval code itself too.
 
-**Decision not yet made**: whether to proceed to the LLM-judge comparison
-with citation precision still below gate (treating it as informative
-context rather than an absolute blocker, given the trajectory and now-named
-causes), or hold judging until one or both root causes above are addressed.
+**Decision made**: proceeded to the LLM-judge comparison with citation
+precision as informative context, not a blocker — see the full verdict
+below.
+
+## 2026-09-13 — Day 3 verdict: the thesis holds, with a real asterisk
+
+Full LLM-judge comparison complete: 224/224 cells across 8 products (cut
+from 12, preserving the high/moderate/zero coverage-tier split — Figma,
+Notion, Slack, Duolingo / Loom, Calendly / Nuvo, Resolve AI), 2 arm-pairs
+(`scry` vs `claude_vanilla`, `scry` vs `claude_web`), 2 independent judge
+families (Claude, Gemini), 4 dimensions, position-swapped throughout. Total
+spend across the whole judge effort (smoke test + all resumes):
+~$19 of the $25 ceiling — never hit the ceiling itself; every interruption
+was account credit exhaustion (Anthropic 2x, Gemini 1x), not budget.
+
+**Results by dimension** (counts are product × arm-pair × judge
+combinations, 32 max per dimension; position-swap disagreement recorded as
+a tie per the pre-committed bias-control design, not a win either way):
+
+| Dimension | scry wins | baseline wins | ties |
+|---|---|---|---|
+| Framework application | **32** | 0 | 0 |
+| Competitive positioning | 24 | 0 | 8 |
+| Coherence / actionability | 14 | 4 | 14 |
+| Groundedness (`grounded_insight_value`) | 25 | 7 | 0 |
+
+**Framework application: a total, clean sweep.** 32 for 32 — every product,
+every baseline, every judge. No losses, no ties. The strongest single
+result in the whole eval.
+
+**Groundedness is the standout, and it does NOT collapse on zero-coverage.**
+Confirmed independently by both judge families. Broken out by coverage
+tier, the win-rate held up (or even looked slightly stronger) on Nuvo and
+Resolve AI as on the high-coverage products — contrary to the pre-committed
+"collapses on zero-coverage" gate scenario. Caveat worth naming precisely:
+this is a *win-rate* result, not a claim that absolute grounding quality is
+equally high on zero-coverage products — both scry and the baselines know
+less about obscure companies, so raw scores were lower across the board
+there; scry's relative edge held anyway.
+
+**Coherence/actionability is the honest soft spot** — only 44% clean wins,
+with 4 real losses kept in the record, not smoothed over, plus 14 ties
+(mostly the position-swap check correctly catching disagreement rather than
+crediting a fluke win). This is scry's weakest dimension by a clear margin.
+
+**Scored against the pre-committed gates:**
+- *Citation precision <90% → fix pipeline first.* Technically still fires
+  (47.9%). Real, not waved away: the underlying analysis is now demonstrably
+  strong, but a meaningful fraction of archive citations are still
+  attributed to the wrong person (see the 2026-09-10 diagnosis — two named
+  causes, neither trivial, neither fixed this week).
+- *Wins framework application + insight novelty on most high-coverage
+  products → thesis holds.* **Satisfied.** Framework application 16/16 on
+  high-coverage alone; groundedness 14/16 (87.5%) on high-coverage alone.
+- *Ties/loses even on high-coverage → pivot to portfolio framing.* Not
+  triggered — high-coverage results were strong and clear, not marginal.
+- *Wins covered but collapses on zero-coverage → thesis holds narrowly, ship
+  a coverage-signal UI.* Not triggered as written — no collapse in win-rate
+  terms. The absolute-quality caveat above means a lighter-weight version of
+  the coverage-signal idea (surfacing when a product has thin archive
+  backing) may still be worth doing, just not because the thesis broke.
+
+**Overall verdict: the thesis holds.** Scry meaningfully outperforms both a
+no-tools baseline and a web-search-equipped baseline on the two dimensions
+the eval was built to test (framework application, groundedness), and
+doesn't fall apart on products the archive has never heard of. That is real
+signal, not a marginal or generous read. It holds with a genuine asterisk
+that should shape how this gets shown to anyone next: citation
+*attribution* (who said it) is only half-fixed, even though citation
+*grounding* (is it true/sourced at all) is strong. Those are different
+claims, and conflating them would overstate where things actually stand.
 
 ## Process note, since you're consolidating into Code
 
