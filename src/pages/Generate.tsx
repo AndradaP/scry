@@ -304,9 +304,9 @@ const Generate = () => {
               Works best for software products, apps, and SaaS
             </p>
 
-            <div className="mt-8">
-              <label className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground">
-                Anything specific you'd like to focus on? <span className="normal-case tracking-normal text-muted-foreground/40">(optional)</span>
+            <div className="mt-12">
+              <label className="font-body text-sm text-muted-foreground/70">
+                Anything specific you'd like to focus on? <span className="text-muted-foreground/40">(optional)</span>
               </label>
               <input
                 type="text"
@@ -314,7 +314,7 @@ const Generate = () => {
                 onChange={(e) => setFocus(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
                 placeholder="e.g. pricing against competitors or growth drivers"
-                className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 mt-3 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
+                className="w-full bg-transparent border-b border-border focus:border-primary outline-none py-2 mt-4 text-sm font-body text-foreground placeholder:text-muted-foreground/50 transition-colors"
               />
             </div>
 
