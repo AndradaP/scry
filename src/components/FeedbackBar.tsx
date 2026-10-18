@@ -20,7 +20,7 @@ export const FeedbackBar = ({ teardownId }: FeedbackBarProps) => {
         .select("rating")
         .eq("teardown_id", teardownId)
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
       if (data) setSelected(data.rating);
     };
     fetchExisting();
